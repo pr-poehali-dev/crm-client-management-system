@@ -317,14 +317,13 @@ export default function Index() {
             <span className="text-sm">Загрузка данных...</span>
           </div>
         ) : (
-          <table className="w-full text-sm border-collapse" style={{ minWidth: "1480px" }}>
+          <table className="w-full text-xs border-collapse" style={{ minWidth: "960px" }}>
             <thead>
               <tr style={{ background: "hsl(217, 60%, 22%)" }}>
-                {["№", "ФИО кандидата", "Возраст", "Судимость / статья",
-                  "Хронические заболевания", "Учёт ПНД / НД", "Заметки",
-                  "Фото документов", "Фото отношений", "Билеты", "Фото контракта",
-                  "ФИО сотрудника", "Дата", ""].map((h, i) => (
-                  <th key={i} className="text-left px-3 py-2.5 font-medium text-xs tracking-wider text-white/80 border-b border-white/10 whitespace-nowrap">{h}</th>
+                {["№", "ФИО", "Лет", "Судимость", "Хр. болезни", "ПНД/НД",
+                  "Заметки", "Доки", "Отнош.", "Билеты", "Контракт",
+                  "Сотрудник", "Дата", ""].map((h, i) => (
+                  <th key={i} className="text-left px-2 py-2 font-medium text-xs tracking-wide text-white/80 border-b border-white/10 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -339,31 +338,31 @@ export default function Index() {
               )}
               {filtered.map((c, idx) => (
                 <tr key={c.id} className="border-b border-border hover:bg-blue-50/50 transition-colors group animate-fade-in bg-white">
-                  <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs w-8">{idx + 1}</td>
-                  <td className="px-3 py-2.5 font-semibold whitespace-nowrap">{c.fullName}</td>
-                  <td className="px-3 py-2.5 text-center font-mono text-sm">{c.age}</td>
-                  <td className="px-3 py-2.5"><StatusBadge value={c.criminalRecord} /></td>
-                  <td className="px-3 py-2.5"><StatusBadge value={c.chronicDiseases} /></td>
-                  <td className="px-3 py-2.5"><StatusBadge value={c.dispensaryRecord} /></td>
-                  <td className="px-3 py-2.5 max-w-[160px]">
-                    <div className="truncate text-muted-foreground text-xs">{c.notes || "—"}</div>
+                  <td className="px-2 py-2 text-muted-foreground font-mono">{idx + 1}</td>
+                  <td className="px-2 py-2 font-semibold whitespace-nowrap max-w-[160px] truncate">{c.fullName}</td>
+                  <td className="px-2 py-2 text-center font-mono">{c.age}</td>
+                  <td className="px-2 py-2"><StatusBadge value={c.criminalRecord} /></td>
+                  <td className="px-2 py-2"><StatusBadge value={c.chronicDiseases} /></td>
+                  <td className="px-2 py-2"><StatusBadge value={c.dispensaryRecord} /></td>
+                  <td className="px-2 py-2 max-w-[120px]">
+                    <div className="truncate text-muted-foreground">{c.notes || "—"}</div>
                   </td>
-                  <td className="px-3 py-2.5">{c.docPhotos.length > 0 ? <span className="text-xs text-blue-700 font-medium">{c.docPhotos.length} файл(а)</span> : <span className="text-xs text-muted-foreground">—</span>}</td>
-                  <td className="px-3 py-2.5">{c.relationPhotos.length > 0 ? <span className="text-xs text-blue-700 font-medium">{c.relationPhotos.length} файл(а)</span> : <span className="text-xs text-muted-foreground">—</span>}</td>
-                  <td className="px-3 py-2.5">{c.tickets.length > 0 ? <span className="text-xs text-blue-700 font-medium">{c.tickets.length} файл(а)</span> : <span className="text-xs text-muted-foreground">—</span>}</td>
-                  <td className="px-3 py-2.5">{c.contractPhotos.length > 0 ? <span className="text-xs text-blue-700 font-medium">{c.contractPhotos.length} файл(а)</span> : <span className="text-xs text-muted-foreground">—</span>}</td>
-                  <td className="px-3 py-2.5 whitespace-nowrap text-sm">{c.employeeName || "—"}</td>
-                  <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground whitespace-nowrap">{c.createdAt}</td>
-                  <td className="px-3 py-2.5 w-24">
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => setDetailId(c.id)} className="p-1.5 rounded hover:bg-blue-100 text-blue-600 transition-colors" title="Подробнее">
-                        <Icon name="Eye" size={14} />
+                  <td className="px-2 py-2 text-center">{c.docPhotos.length > 0 ? <span className="text-blue-700 font-medium">{c.docPhotos.length}</span> : <span className="text-muted-foreground">—</span>}</td>
+                  <td className="px-2 py-2 text-center">{c.relationPhotos.length > 0 ? <span className="text-blue-700 font-medium">{c.relationPhotos.length}</span> : <span className="text-muted-foreground">—</span>}</td>
+                  <td className="px-2 py-2 text-center">{c.tickets.length > 0 ? <span className="text-blue-700 font-medium">{c.tickets.length}</span> : <span className="text-muted-foreground">—</span>}</td>
+                  <td className="px-2 py-2 text-center">{c.contractPhotos.length > 0 ? <span className="text-blue-700 font-medium">{c.contractPhotos.length}</span> : <span className="text-muted-foreground">—</span>}</td>
+                  <td className="px-2 py-2 whitespace-nowrap max-w-[120px] truncate">{c.employeeName || "—"}</td>
+                  <td className="px-2 py-2 font-mono text-muted-foreground whitespace-nowrap">{c.createdAt}</td>
+                  <td className="px-2 py-2 sticky right-0 bg-white group-hover:bg-blue-50/50">
+                    <div className="flex items-center gap-0.5">
+                      <button onClick={() => setDetailId(c.id)} className="p-1 rounded hover:bg-blue-100 text-blue-600 transition-colors" title="Подробнее">
+                        <Icon name="Eye" size={13} />
                       </button>
-                      <button onClick={() => openEdit(c)} className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Редактировать">
-                        <Icon name="Pencil" size={14} />
+                      <button onClick={() => openEdit(c)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Редактировать">
+                        <Icon name="Pencil" size={13} />
                       </button>
-                      <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors" title="Удалить">
-                        <Icon name="Trash2" size={14} />
+                      <button onClick={() => handleDelete(c.id)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors" title="Удалить">
+                        <Icon name="Trash2" size={13} />
                       </button>
                     </div>
                   </td>
