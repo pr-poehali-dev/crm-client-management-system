@@ -30,6 +30,7 @@ interface Candidate {
   tickets: FileItem[];
   contractPhotos: FileItem[];
   employeeName: string;
+  company: string;
   createdAt: string;
 }
 
@@ -46,6 +47,7 @@ interface ApiCandidate {
   tickets: FileItem[];
   contract_photos: FileItem[];
   employee_name: string;
+  company: string;
   created_at: string;
 }
 
@@ -63,6 +65,7 @@ function fromApi(r: ApiCandidate): Candidate {
     tickets: r.tickets || [],
     contractPhotos: r.contract_photos || [],
     employeeName: r.employee_name,
+    company: r.company || "",
     createdAt: r.created_at,
   };
 }
@@ -80,6 +83,7 @@ function toApi(c: Omit<Candidate, "id" | "createdAt">) {
     tickets: c.tickets,
     contractPhotos: c.contractPhotos,
     employeeName: c.employeeName,
+    company: c.company,
     createdAt: new Date().toISOString().slice(0, 10),
   };
 }
@@ -87,7 +91,7 @@ function toApi(c: Omit<Candidate, "id" | "createdAt">) {
 const EMPTY: Omit<Candidate, "id" | "createdAt"> = {
   fullName: "", age: "", criminalRecord: "", chronicDiseases: "",
   dispensaryRecord: "", notes: "", docPhotos: [], relationPhotos: [],
-  tickets: [], contractPhotos: [], employeeName: "",
+  tickets: [], contractPhotos: [], employeeName: "", company: "",
 };
 
 async function uploadFileToS3(file: File): Promise<FileItem> {
@@ -322,7 +326,7 @@ export default function Index() {
               <tr style={{ background: "hsl(217, 60%, 22%)" }}>
                 {["№", "ФИО", "Лет", "Судимость", "Хр. болезни", "ПНД/НД",
                   "Заметки", "Доки", "Отнош.", "Билеты", "Контракт",
-                  "Сотрудник", "Дата", ""].map((h, i) => (
+                  "Сотрудник", "Компания", "Дата", ""].map((h, i) => (
                   <th key={i} className="text-left px-2 py-2 font-medium text-xs tracking-wide text-white/80 border-b border-white/10 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -330,7 +334,7 @@ export default function Index() {
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={14} className="text-center py-20 text-muted-foreground">
+                  <td colSpan={15} className="text-center py-20 text-muted-foreground">
                     <Icon name="Inbox" size={36} className="mx-auto mb-3 opacity-25" />
                     <div className="text-sm">Нет записей. Добавьте первого кандидата.</div>
                   </td>
@@ -352,6 +356,7 @@ export default function Index() {
                   <td className="px-2 py-2 text-center">{c.tickets.length > 0 ? <span className="text-blue-700 font-medium">{c.tickets.length}</span> : <span className="text-muted-foreground">—</span>}</td>
                   <td className="px-2 py-2 text-center">{c.contractPhotos.length > 0 ? <span className="text-blue-700 font-medium">{c.contractPhotos.length}</span> : <span className="text-muted-foreground">—</span>}</td>
                   <td className="px-2 py-2 whitespace-nowrap max-w-[120px] truncate">{c.employeeName || "—"}</td>
+                  <td className="px-2 py-2 whitespace-nowrap max-w-[120px] truncate">{c.company || "—"}</td>
                   <td className="px-2 py-2 font-mono text-muted-foreground whitespace-nowrap">{c.createdAt}</td>
                   <td className="px-2 py-2 sticky right-0 bg-white group-hover:bg-blue-50/50">
                     <div className="flex items-center gap-0.5">
@@ -398,6 +403,11 @@ export default function Index() {
                 <Label className="text-xs font-medium">ФИО сотрудника</Label>
                 <Input value={form.employeeName} onChange={(e) => setForm({ ...form, employeeName: e.target.value })}
                   placeholder="Ответственный сотрудник" className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Компания</Label>
+                <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })}
+                  placeholder="Название компании" className="h-9 text-sm" />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
@@ -466,6 +476,7 @@ export default function Index() {
                 <div className="grid grid-cols-2 gap-3">
                   <InfoRow label="Возраст" value={`${detail.age} лет`} />
                   <InfoRow label="ФИО сотрудника" value={detail.employeeName} />
+                  <InfoRow label="Компания" value={detail.company} />
                   <InfoRow label="Судимость / статья" value={<StatusBadge value={detail.criminalRecord} />} />
                   <InfoRow label="Хронические заболевания" value={<StatusBadge value={detail.chronicDiseases} />} />
                   <InfoRow label="Учёт ПНД / НД" value={<StatusBadge value={detail.dispensaryRecord} />} />

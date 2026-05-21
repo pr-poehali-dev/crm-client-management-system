@@ -1,0 +1,1 @@
+ALTER TABLE t_p71061117_crm_client_managemen.candidates ADD COLUMN company text NULL DEFAULT '';

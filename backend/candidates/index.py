@@ -92,8 +92,8 @@ def action_create(body, cur, conn):
     cur.execute(
         f"""INSERT INTO {SCHEMA}.candidates
             (full_name, age, criminal_record, chronic_diseases, dispensary_record,
-             notes, doc_photos, relation_photos, tickets, contract_photos, employee_name, created_at)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
+             notes, doc_photos, relation_photos, tickets, contract_photos, employee_name, company, created_at)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
         (
             body.get("fullName", ""),
             body.get("age", ""),
@@ -106,6 +106,7 @@ def action_create(body, cur, conn):
             json.dumps(body.get("tickets", []), ensure_ascii=False),
             json.dumps(body.get("contractPhotos", []), ensure_ascii=False),
             body.get("employeeName", ""),
+            body.get("company", ""),
             body.get("createdAt"),
         ),
     )
@@ -116,12 +117,14 @@ def action_create(body, cur, conn):
         name = body.get("fullName", "—")
         age = body.get("age", "—")
         employee = body.get("employeeName", "—")
+        company = body.get("company", "—")
         date = body.get("createdAt", "—")
         send_telegram(
             f"👤 <b>Новый кандидат добавлен</b>\n\n"
             f"<b>ФИО:</b> {name}\n"
             f"<b>Возраст:</b> {age}\n"
             f"<b>Сотрудник:</b> {employee}\n"
+            f"<b>Компания:</b> {company}\n"
             f"<b>Дата:</b> {date}"
         )
     except Exception:
@@ -136,7 +139,7 @@ def action_update(body, cur, conn):
         f"""UPDATE {SCHEMA}.candidates SET
             full_name=%s, age=%s, criminal_record=%s, chronic_diseases=%s,
             dispensary_record=%s, notes=%s, doc_photos=%s, relation_photos=%s,
-            tickets=%s, contract_photos=%s, employee_name=%s
+            tickets=%s, contract_photos=%s, employee_name=%s, company=%s
             WHERE id=%s RETURNING *""",
         (
             body.get("fullName", ""),
@@ -150,6 +153,7 @@ def action_update(body, cur, conn):
             json.dumps(body.get("tickets", []), ensure_ascii=False),
             json.dumps(body.get("contractPhotos", []), ensure_ascii=False),
             body.get("employeeName", ""),
+            body.get("company", ""),
             candidate_id,
         ),
     )
