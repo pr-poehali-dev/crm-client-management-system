@@ -6,6 +6,7 @@ import uuid
 
 import boto3
 import psycopg2
+import urllib.request
 
 SCHEMA = os.environ.get("MAIN_DB_SCHEMA", "t_p71061117_crm_client_managemen")
 
@@ -73,6 +74,20 @@ def action_upload(body):
     }
 
 
+def send_telegram(text: str):
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
+    if not token or not chat_id:
+        return
+    payload = json.dumps({"chat_id": chat_id, "text": text, "parse_mode": "HTML"}).encode()
+    req = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    urllib.request.urlopen(req, timeout=5)
+
+
 def action_create(body, cur, conn):
     cur.execute(
         f"""INSERT INTO {SCHEMA}.candidates
@@ -96,6 +111,22 @@ def action_create(body, cur, conn):
     )
     row = row_to_dict(cur.fetchone(), cur)
     conn.commit()
+
+    try:
+        name = body.get("fullName", "—")
+        age = body.get("age", "—")
+        employee = body.get("employeeName", "—")
+        date = body.get("createdAt", "—")
+        send_telegram(
+            f"👤 <b>Новый кандидат добавлен</b>\n\n"
+            f"<b>ФИО:</b> {name}\n"
+            f"<b>Возраст:</b> {age}\n"
+            f"<b>Сотрудник:</b> {employee}\n"
+            f"<b>Дата:</b> {date}"
+        )
+    except Exception:
+        pass
+
     return {"statusCode": 201, "headers": CORS, "body": json.dumps(row, ensure_ascii=False)}
 
 
