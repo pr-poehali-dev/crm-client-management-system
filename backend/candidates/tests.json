@@ -1,0 +1,36 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET all candidates",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "POST create candidate",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "fullName": "Тестов Тест Тестович",
+        "age": "25",
+        "criminalRecord": "Нет",
+        "chronicDiseases": "Нет",
+        "dispensaryRecord": "Нет",
+        "notes": "Тестовая запись",
+        "docPhotos": [],
+        "relationPhotos": [],
+        "tickets": [],
+        "contractPhotos": [],
+        "employeeName": "Тестер",
+        "createdAt": "2026-05-21"
+      },
+      "expectedStatus": 201
+    }
+  ]
+}
