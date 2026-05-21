@@ -8,7 +8,7 @@ import Icon from "@/components/ui/icon";
 import func2url from "../../backend/func2url.json";
 
 const API = (func2url as Record<string, string>)["candidates"];
-const UPLOAD_URL = `${API}/upload`;
+const UPLOAD_URL = API;
 const NOTIFY_URL = (func2url as Record<string, string>)["notify-telegram"];
 
 interface FileItem {
@@ -99,7 +99,7 @@ async function uploadFileToS3(file: File): Promise<FileItem> {
         const res = await fetch(UPLOAD_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data: base64, name: file.name, type: file.type }),
+          body: JSON.stringify({ action: "upload", data: base64, name: file.name, type: file.type }),
         });
         const data = await res.text();
         // Разворачиваем двойную сериализацию если есть

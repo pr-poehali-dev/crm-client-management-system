@@ -87,10 +87,11 @@ def handler(event: dict, context) -> dict:
     if method == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
-    # POST /upload — загрузка файла
-    if method == "POST" and path.rstrip("/").endswith("/upload"):
+    # POST с action=upload — загрузка файла
+    if method == "POST":
         body = json.loads(event.get("body") or "{}")
-        return handle_upload(body)
+        if body.get("action") == "upload":
+            return handle_upload(body)
 
     conn = get_conn()
     cur = conn.cursor()
@@ -107,7 +108,6 @@ def handler(event: dict, context) -> dict:
 
         # POST — создать кандидата
         if method == "POST":
-            body = json.loads(event.get("body") or "{}")
             cur.execute(
                 f"""INSERT INTO {SCHEMA}.candidates
                     (full_name, age, criminal_record, chronic_diseases, dispensary_record,
