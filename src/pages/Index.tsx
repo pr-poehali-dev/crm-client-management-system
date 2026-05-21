@@ -123,16 +123,20 @@ function FilesUploadCell({ files, onAdd, label }: {
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files || []);
     if (!picked.length) return;
     if (inputRef.current) inputRef.current.value = "";
     setUploading(true);
+    setUploadError(null);
     try {
       const uploaded = await Promise.all(picked.map(uploadFileToS3));
       onAdd([...files, ...uploaded]);
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setUploadError(msg);
       console.error("Upload failed", err);
     } finally {
       setUploading(false);
@@ -157,6 +161,11 @@ function FilesUploadCell({ files, onAdd, label }: {
           : <><Icon name="Plus" size={12} />{label}</>}
       </button>
       <input ref={inputRef} type="file" multiple accept="image/*,.pdf" className="hidden" onChange={handleFiles} />
+      {uploadError && (
+        <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 break-all">
+          Ошибка: {uploadError}
+        </div>
+      )}
     </div>
   );
 }
