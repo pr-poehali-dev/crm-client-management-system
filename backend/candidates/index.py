@@ -9,13 +9,9 @@ import psycopg2
 
 SCHEMA = os.environ.get("MAIN_DB_SCHEMA", "t_p71061117_crm_client_managemen")
 
-
-def get_cdn_base():
-    return f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket"
-
 CORS = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
 }
 
@@ -33,6 +29,10 @@ def get_s3():
     )
 
 
+def get_cdn_base():
+    return f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket"
+
+
 def row_to_dict(row, cursor):
     cols = [d[0] for d in cursor.description]
     d = dict(zip(cols, row))
@@ -47,8 +47,7 @@ def row_to_dict(row, cursor):
     return d
 
 
-def handle_upload(body: dict) -> dict:
-    """Загружает файл из base64 в S3, возвращает CDN-ссылку."""
+def action_upload(body):
     file_data_b64 = body.get("data", "")
     original_name = body.get("name", "file")
     content_type = body.get("type", "application/octet-stream")
@@ -60,7 +59,6 @@ def handle_upload(body: dict) -> dict:
         file_data_b64 = file_data_b64.split(",", 1)[1]
 
     file_bytes = base64.b64decode(file_data_b64)
-
     ext = mimetypes.guess_extension(content_type) or os.path.splitext(original_name)[1] or ".bin"
     ext = ext.lstrip(".")
     ext = {"jpeg": "jpg", "jpe": "jpg"}.get(ext, ext)
@@ -71,108 +69,110 @@ def handle_upload(body: dict) -> dict:
     return {
         "statusCode": 200,
         "headers": CORS,
-        "body": json.dumps({
-            "url": f"{get_cdn_base()}/{key}",
-            "name": original_name,
-            "type": content_type,
-        }),
+        "body": json.dumps({"url": f"{get_cdn_base()}/{key}", "name": original_name, "type": content_type}),
     }
 
 
+def action_create(body, cur, conn):
+    cur.execute(
+        f"""INSERT INTO {SCHEMA}.candidates
+            (full_name, age, criminal_record, chronic_diseases, dispensary_record,
+             notes, doc_photos, relation_photos, tickets, contract_photos, employee_name, created_at)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
+        (
+            body.get("fullName", ""),
+            body.get("age", ""),
+            body.get("criminalRecord", ""),
+            body.get("chronicDiseases", ""),
+            body.get("dispensaryRecord", ""),
+            body.get("notes", ""),
+            json.dumps(body.get("docPhotos", []), ensure_ascii=False),
+            json.dumps(body.get("relationPhotos", []), ensure_ascii=False),
+            json.dumps(body.get("tickets", []), ensure_ascii=False),
+            json.dumps(body.get("contractPhotos", []), ensure_ascii=False),
+            body.get("employeeName", ""),
+            body.get("createdAt"),
+        ),
+    )
+    row = row_to_dict(cur.fetchone(), cur)
+    conn.commit()
+    return {"statusCode": 201, "headers": CORS, "body": json.dumps(row, ensure_ascii=False)}
+
+
+def action_update(body, cur, conn):
+    candidate_id = int(body.get("id", 0))
+    cur.execute(
+        f"""UPDATE {SCHEMA}.candidates SET
+            full_name=%s, age=%s, criminal_record=%s, chronic_diseases=%s,
+            dispensary_record=%s, notes=%s, doc_photos=%s, relation_photos=%s,
+            tickets=%s, contract_photos=%s, employee_name=%s
+            WHERE id=%s RETURNING *""",
+        (
+            body.get("fullName", ""),
+            body.get("age", ""),
+            body.get("criminalRecord", ""),
+            body.get("chronicDiseases", ""),
+            body.get("dispensaryRecord", ""),
+            body.get("notes", ""),
+            json.dumps(body.get("docPhotos", []), ensure_ascii=False),
+            json.dumps(body.get("relationPhotos", []), ensure_ascii=False),
+            json.dumps(body.get("tickets", []), ensure_ascii=False),
+            json.dumps(body.get("contractPhotos", []), ensure_ascii=False),
+            body.get("employeeName", ""),
+            candidate_id,
+        ),
+    )
+    row = row_to_dict(cur.fetchone(), cur)
+    conn.commit()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps(row, ensure_ascii=False)}
+
+
+def action_delete(body, cur, conn):
+    candidate_id = int(body.get("id", 0))
+    cur.execute(f"DELETE FROM {SCHEMA}.candidates WHERE id=%s", (candidate_id,))
+    conn.commit()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
+
+
 def handler(event: dict, context) -> dict:
-    """CRUD для кандидатов + загрузка файлов в S3."""
+    """CRUD для кандидатов + загрузка файлов. Все операции через action в теле POST."""
     method = event.get("httpMethod", "GET")
-    path = event.get("path", "/")
 
     if method == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
-    # POST с action=upload — загрузка файла
-    if method == "POST":
-        body = json.loads(event.get("body") or "{}")
-        if body.get("action") == "upload":
-            return handle_upload(body)
-
-    conn = get_conn()
-    cur = conn.cursor()
-
-    try:
-        path_params = event.get("pathParameters") or {}
-        candidate_id = path_params.get("id")
-
-        # GET — список всех
-        if method == "GET" and not candidate_id:
+    # GET — список всех кандидатов
+    if method == "GET":
+        conn = get_conn()
+        cur = conn.cursor()
+        try:
             cur.execute(f"SELECT * FROM {SCHEMA}.candidates ORDER BY created_at DESC, id DESC")
             rows = [row_to_dict(r, cur) for r in cur.fetchall()]
             return {"statusCode": 200, "headers": CORS, "body": json.dumps(rows, ensure_ascii=False)}
+        finally:
+            cur.close()
+            conn.close()
 
-        # POST — создать кандидата
-        if method == "POST":
-            cur.execute(
-                f"""INSERT INTO {SCHEMA}.candidates
-                    (full_name, age, criminal_record, chronic_diseases, dispensary_record,
-                     notes, doc_photos, relation_photos, tickets, contract_photos, employee_name, created_at)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
-                (
-                    body.get("fullName", ""),
-                    body.get("age", ""),
-                    body.get("criminalRecord", ""),
-                    body.get("chronicDiseases", ""),
-                    body.get("dispensaryRecord", ""),
-                    body.get("notes", ""),
-                    json.dumps(body.get("docPhotos", []), ensure_ascii=False),
-                    json.dumps(body.get("relationPhotos", []), ensure_ascii=False),
-                    json.dumps(body.get("tickets", []), ensure_ascii=False),
-                    json.dumps(body.get("contractPhotos", []), ensure_ascii=False),
-                    body.get("employeeName", ""),
-                    body.get("createdAt"),
-                ),
-            )
-            row = row_to_dict(cur.fetchone(), cur)
-            conn.commit()
-            return {"statusCode": 201, "headers": CORS, "body": json.dumps(row, ensure_ascii=False)}
+    # POST — все операции через action
+    if method == "POST":
+        body = json.loads(event.get("body") or "{}")
+        action = body.get("action", "")
 
-        # Извлекаем id из пути
-        if not candidate_id:
-            parts = [p for p in path.split("/") if p]
-            candidate_id = parts[-1] if parts else None
+        if action == "upload":
+            return action_upload(body)
 
-        # PUT — обновить
-        if method == "PUT" and candidate_id:
-            body = json.loads(event.get("body") or "{}")
-            cur.execute(
-                f"""UPDATE {SCHEMA}.candidates SET
-                    full_name=%s, age=%s, criminal_record=%s, chronic_diseases=%s,
-                    dispensary_record=%s, notes=%s, doc_photos=%s, relation_photos=%s,
-                    tickets=%s, contract_photos=%s, employee_name=%s
-                    WHERE id=%s RETURNING *""",
-                (
-                    body.get("fullName", ""),
-                    body.get("age", ""),
-                    body.get("criminalRecord", ""),
-                    body.get("chronicDiseases", ""),
-                    body.get("dispensaryRecord", ""),
-                    body.get("notes", ""),
-                    json.dumps(body.get("docPhotos", []), ensure_ascii=False),
-                    json.dumps(body.get("relationPhotos", []), ensure_ascii=False),
-                    json.dumps(body.get("tickets", []), ensure_ascii=False),
-                    json.dumps(body.get("contractPhotos", []), ensure_ascii=False),
-                    body.get("employeeName", ""),
-                    int(candidate_id),
-                ),
-            )
-            row = row_to_dict(cur.fetchone(), cur)
-            conn.commit()
-            return {"statusCode": 200, "headers": CORS, "body": json.dumps(row, ensure_ascii=False)}
+        conn = get_conn()
+        cur = conn.cursor()
+        try:
+            if action == "create":
+                return action_create(body, cur, conn)
+            if action == "update":
+                return action_update(body, cur, conn)
+            if action == "delete":
+                return action_delete(body, cur, conn)
+            return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": f"Unknown action: {action}"})}
+        finally:
+            cur.close()
+            conn.close()
 
-        # DELETE — удалить
-        if method == "DELETE" and candidate_id:
-            cur.execute(f"DELETE FROM {SCHEMA}.candidates WHERE id=%s", (int(candidate_id),))
-            conn.commit()
-            return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
-
-        return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Not found"})}
-
-    finally:
-        cur.close()
-        conn.close()
+    return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Not found"})}

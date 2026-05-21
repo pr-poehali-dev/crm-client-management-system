@@ -17,6 +17,7 @@
       "method": "POST",
       "path": "/",
       "body": {
+        "action": "create",
         "fullName": "Тестов Тест Тестович",
         "age": "25",
         "criminalRecord": "Нет",
@@ -31,13 +32,12 @@
         "createdAt": "2026-05-21"
       },
       "expectedStatus": 201
-    }
-  ,
+    },
     {
       "name": "POST upload without data returns 400",
       "method": "POST",
-      "path": "/upload",
-      "body": {},
+      "path": "/",
+      "body": { "action": "upload" },
       "expectedStatus": 400
     }
   ]

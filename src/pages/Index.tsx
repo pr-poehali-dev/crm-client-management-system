@@ -227,10 +227,10 @@ export default function Index() {
     setSaving(true);
     try {
       if (editingId !== null) {
-        const res = await fetch(`${API}/${editingId}`, {
-          method: "PUT",
+        const res = await fetch(API, {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(toApi(form)),
+          body: JSON.stringify({ action: "update", id: editingId, ...toApi(form) }),
         });
         const updated = fromApi(JSON.parse(await res.text()));
         setCandidates((prev) => prev.map((c) => (c.id === editingId ? updated : c)));
@@ -238,7 +238,7 @@ export default function Index() {
         const res = await fetch(API, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(toApi(form)),
+          body: JSON.stringify({ action: "create", ...toApi(form) }),
         });
         const created = fromApi(JSON.parse(await res.text()));
         setCandidates((prev) => [created, ...prev]);
@@ -263,7 +263,11 @@ export default function Index() {
   };
 
   const handleDelete = async (id: number) => {
-    await fetch(`${API}/${id}`, { method: "DELETE" });
+    await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", id }),
+    });
     setCandidates((prev) => prev.filter((c) => c.id !== id));
   };
 
