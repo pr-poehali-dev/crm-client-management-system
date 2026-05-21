@@ -8,6 +8,7 @@ import Icon from "@/components/ui/icon";
 import func2url from "../../backend/func2url.json";
 
 const API = (func2url as Record<string, string>)["candidates"];
+const UPLOAD_URL = `${API}/upload`;
 const NOTIFY_URL = (func2url as Record<string, string>)["notify-telegram"];
 
 interface FileItem {
@@ -89,21 +90,51 @@ const EMPTY: Omit<Candidate, "id" | "createdAt"> = {
   tickets: [], contractPhotos: [], employeeName: "",
 };
 
+async function uploadFileToS3(file: File): Promise<FileItem> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64 = (reader.result as string).split(",")[1];
+        const res = await fetch(UPLOAD_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: base64, name: file.name, type: file.type }),
+        });
+        const data = JSON.parse(await res.text());
+        resolve({ url: data.url, name: file.name, type: file.type });
+      } catch (e) {
+        reject(e);
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function FilesUploadCell({ files, onAdd, label }: {
   files: FileItem[];
   onAdd: (f: FileItem[]) => void;
   label: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const items: FileItem[] = Array.from(e.target.files || []).map((f) => ({
-      name: f.name,
-      url: URL.createObjectURL(f),
-      type: f.type,
-    }));
-    onAdd([...files, ...items]);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files || []);
+    if (!picked.length) return;
     if (inputRef.current) inputRef.current.value = "";
+    setUploading(true);
+    try {
+      const uploaded = await Promise.all(picked.map(uploadFileToS3));
+      onAdd([...files, ...uploaded]);
+    } catch (err) {
+      console.error("Upload failed", err);
+    } finally {
+      setUploading(false);
+    }
   };
+
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
@@ -115,9 +146,11 @@ function FilesUploadCell({ files, onAdd, label }: {
           </a>
         ))}
       </div>
-      <button type="button" onClick={() => inputRef.current?.click()}
-        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors border border-dashed border-border rounded px-2 py-1 hover:border-primary">
-        <Icon name="Plus" size={12} />{label}
+      <button type="button" onClick={() => !uploading && inputRef.current?.click()}
+        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors border border-dashed border-border rounded px-2 py-1 hover:border-primary disabled:opacity-50">
+        {uploading
+          ? <><Icon name="Loader2" size={12} className="animate-spin" /> Загрузка...</>
+          : <><Icon name="Plus" size={12} />{label}</>}
       </button>
       <input ref={inputRef} type="file" multiple accept="image/*,.pdf" className="hidden" onChange={handleFiles} />
     </div>

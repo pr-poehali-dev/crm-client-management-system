@@ -32,5 +32,13 @@
       },
       "expectedStatus": 201
     }
+  ,
+    {
+      "name": "POST upload without data returns 400",
+      "method": "POST",
+      "path": "/upload",
+      "body": {},
+      "expectedStatus": 400
+    }
   ]
 }
