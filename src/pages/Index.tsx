@@ -101,8 +101,12 @@ async function uploadFileToS3(file: File): Promise<FileItem> {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ data: base64, name: file.name, type: file.type }),
         });
-        const data = JSON.parse(await res.text());
-        resolve({ url: data.url, name: file.name, type: file.type });
+        const data = await res.text();
+        // Разворачиваем двойную сериализацию если есть
+        let parsed = JSON.parse(data);
+        if (typeof parsed === "string") parsed = JSON.parse(parsed);
+        if (!parsed.url) throw new Error("No URL in response: " + data);
+        resolve({ url: parsed.url, name: file.name, type: file.type });
       } catch (e) {
         reject(e);
       }
