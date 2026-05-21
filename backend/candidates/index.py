@@ -8,7 +8,10 @@ import boto3
 import psycopg2
 
 SCHEMA = os.environ.get("MAIN_DB_SCHEMA", "t_p71061117_crm_client_managemen")
-CDN_BASE = f"https://cdn.poehali.dev/projects/{os.environ.get('AWS_ACCESS_KEY_ID', '')}/bucket"
+
+
+def get_cdn_base():
+    return f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket"
 
 CORS = {
     "Access-Control-Allow-Origin": "*",
@@ -69,7 +72,7 @@ def handle_upload(body: dict) -> dict:
         "statusCode": 200,
         "headers": CORS,
         "body": json.dumps({
-            "url": f"{CDN_BASE}/{key}",
+            "url": f"{get_cdn_base()}/{key}",
             "name": original_name,
             "type": content_type,
         }),
