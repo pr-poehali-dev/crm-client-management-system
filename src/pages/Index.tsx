@@ -203,7 +203,7 @@ export default function Index() {
         setCandidates((prev) => [newCandidate, ...prev]);
 
         try {
-          const func2url = await import("../../func2url.json");
+          const func2url = await import("../../backend/func2url.json");
           const url = (func2url as Record<string, string>)["notify-telegram"];
           if (url) {
             await fetch(url, {
