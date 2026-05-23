@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import Icon from "@/components/ui/icon";
+import { useAuth } from "@/contexts/AuthContext";
 import func2url from "../../backend/func2url.json";
 
 const API = (func2url as Record<string, string>)["candidates"];
 const UPLOAD_URL = API;
-const NOTIFY_URL = (func2url as Record<string, string>)["notify-telegram"];
 
 interface FileItem {
   name: string;
@@ -191,6 +192,10 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default function Index() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const isAdmin = user?.role === "admin";
+
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -247,18 +252,7 @@ export default function Index() {
         const created = fromApi(JSON.parse(await res.text()));
         setCandidates((prev) => [created, ...prev]);
 
-        try {
-          await fetch(NOTIFY_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              fullName: form.fullName,
-              age: form.age,
-              employeeName: form.employeeName,
-              createdAt: created.createdAt,
-            }),
-          });
-        } catch (e) { console.warn("Telegram notify", e); }
+
       }
       setIsModalOpen(false);
     } finally {
@@ -290,9 +284,19 @@ export default function Index() {
             <div className="text-white/50 text-xs font-light">Система управления персоналом</div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-white/40 text-xs font-mono hidden md:block">Записей: {candidates.length}</span>
-          <Button onClick={openAdd} className="bg-white text-[hsl(217,60%,18%)] hover:bg-white/90 text-sm font-semibold h-9 px-4">
+        <div className="flex items-center gap-2">
+          <span className="text-white/40 text-xs font-mono hidden md:block mr-2">Записей: {candidates.length}</span>
+          {isAdmin && (
+            <button onClick={() => navigate("/users")} className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Пользователи">
+              <Icon name="UserCog" size={14} />
+              <span className="hidden md:inline">Пользователи</span>
+            </button>
+          )}
+          <div className="text-white/50 text-xs hidden md:block">{user?.fullName || user?.login}</div>
+          <button onClick={async () => { await logout(); navigate("/login"); }} className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Выйти">
+            <Icon name="LogOut" size={14} />
+          </button>
+          <Button onClick={openAdd} className="bg-white text-[hsl(217,60%,18%)] hover:bg-white/90 text-sm font-semibold h-9 px-4 ml-1">
             <Icon name="Plus" size={15} />Добавить кандидата
           </Button>
         </div>
@@ -366,9 +370,11 @@ export default function Index() {
                       <button onClick={() => openEdit(c)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Редактировать">
                         <Icon name="Pencil" size={13} />
                       </button>
-                      <button onClick={() => handleDelete(c.id)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors" title="Удалить">
-                        <Icon name="Trash2" size={13} />
-                      </button>
+                      {isAdmin && (
+                        <button onClick={() => handleDelete(c.id)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors" title="Удалить">
+                          <Icon name="Trash2" size={13} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

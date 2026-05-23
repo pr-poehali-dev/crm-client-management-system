@@ -1,0 +1,203 @@
+import hashlib
+import json
+import os
+import secrets
+import time
+
+import psycopg2
+
+SCHEMA = os.environ.get("MAIN_DB_SCHEMA", "t_p71061117_crm_client_managemen")
+
+CORS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, X-Session-Id",
+}
+
+SESSION_TTL = 86400 * 7  # 7 дней
+
+
+def get_conn():
+    return psycopg2.connect(os.environ["DATABASE_URL"])
+
+
+def md5(s: str) -> str:
+    return hashlib.md5(s.encode()).hexdigest()
+
+
+def ok(data: dict, status=200):
+    return {"statusCode": status, "headers": CORS, "body": json.dumps(data, ensure_ascii=False)}
+
+
+def err(msg: str, status=400):
+    return {"statusCode": status, "headers": CORS, "body": json.dumps({"error": msg}, ensure_ascii=False)}
+
+
+def get_session_user(conn, session_id: str):
+    if not session_id:
+        return None
+    cur = conn.cursor()
+    cur.execute(
+        f"SELECT u.id, u.login, u.full_name, u.role FROM {SCHEMA}.sessions s "
+        f"JOIN {SCHEMA}.users u ON u.id = s.user_id "
+        f"WHERE s.token = %s AND s.expires_at > NOW()",
+        (session_id,),
+    )
+    row = cur.fetchone()
+    cur.close()
+    if not row:
+        return None
+    return {"id": row[0], "login": row[1], "fullName": row[2], "role": row[3]}
+
+
+def action_login(body, conn):
+    login = (body.get("login") or "").strip()
+    password = (body.get("password") or "").strip()
+    if not login or not password:
+        return err("Введите логин и пароль")
+
+    cur = conn.cursor()
+    cur.execute(
+        f"SELECT id, full_name, role FROM {SCHEMA}.users WHERE login = %s AND password_hash = %s",
+        (login, md5(password)),
+    )
+    row = cur.fetchone()
+    cur.close()
+    if not row:
+        return err("Неверный логин или пароль", 401)
+
+    user_id, full_name, role = row
+    token = secrets.token_hex(32)
+    expires = int(time.time()) + SESSION_TTL
+
+    cur = conn.cursor()
+    cur.execute(
+        f"INSERT INTO {SCHEMA}.sessions (user_id, token, expires_at) VALUES (%s, %s, to_timestamp(%s))",
+        (user_id, token, expires),
+    )
+    conn.commit()
+    cur.close()
+
+    return ok({"token": token, "user": {"id": user_id, "login": login, "fullName": full_name, "role": role}})
+
+
+def action_me(headers, conn):
+    session_id = headers.get("x-session-id", "")
+    user = get_session_user(conn, session_id)
+    if not user:
+        return err("Не авторизован", 401)
+    return ok({"user": user})
+
+
+def action_logout(headers, conn):
+    session_id = headers.get("x-session-id", "")
+    if session_id:
+        cur = conn.cursor()
+        cur.execute(f"DELETE FROM {SCHEMA}.sessions WHERE token = %s", (session_id,))
+        conn.commit()
+        cur.close()
+    return ok({"ok": True})
+
+
+def action_list_users(headers, conn):
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return err("Нет доступа", 403)
+    cur = conn.cursor()
+    cur.execute(f"SELECT id, login, full_name, role, created_at FROM {SCHEMA}.users WHERE login NOT LIKE 'deleted_%' ORDER BY id")
+    rows = [{"id": r[0], "login": r[1], "fullName": r[2], "role": r[3], "createdAt": str(r[4])} for r in cur.fetchall()]
+    cur.close()
+    return ok({"users": rows})
+
+
+def action_create_user(body, headers, conn):
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return err("Нет доступа", 403)
+    login = (body.get("login") or "").strip()
+    password = (body.get("password") or "").strip()
+    full_name = (body.get("fullName") or "").strip()
+    role = body.get("role", "employee")
+    if role not in ("admin", "employee"):
+        role = "employee"
+    if not login or not password:
+        return err("Логин и пароль обязательны")
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            f"INSERT INTO {SCHEMA}.users (login, password_hash, full_name, role) VALUES (%s, %s, %s, %s) RETURNING id",
+            (login, md5(password), full_name, role),
+        )
+        new_id = cur.fetchone()[0]
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        return err("Логин уже занят", 409)
+    finally:
+        cur.close()
+    return ok({"id": new_id, "login": login, "fullName": full_name, "role": role}, 201)
+
+
+def action_delete_user(body, headers, conn):
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return err("Нет доступа", 403)
+    target_id = int(body.get("id", 0))
+    if target_id == user["id"]:
+        return err("Нельзя удалить самого себя")
+    cur = conn.cursor()
+    cur.execute(f"UPDATE {SCHEMA}.sessions SET expires_at = NOW() WHERE user_id = %s", (target_id,))
+    cur.execute(f"UPDATE {SCHEMA}.users SET login = 'deleted_' || id::text, password_hash = '' WHERE id = %s", (target_id,))
+    conn.commit()
+    cur.close()
+    return ok({"ok": True})
+
+
+def action_change_password(body, headers, conn):
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return err("Нет доступа", 403)
+    target_id = int(body.get("id", 0))
+    new_password = (body.get("password") or "").strip()
+    if not new_password:
+        return err("Пароль не может быть пустым")
+    cur = conn.cursor()
+    cur.execute(f"UPDATE {SCHEMA}.users SET password_hash = %s WHERE id = %s", (md5(new_password), target_id))
+    conn.commit()
+    cur.close()
+    return ok({"ok": True})
+
+
+def handler(event: dict, context) -> dict:
+    """Авторизация: login, me, logout, управление пользователями."""
+    method = event.get("httpMethod", "GET")
+
+    if method == "OPTIONS":
+        return {"statusCode": 200, "headers": CORS, "body": ""}
+
+    headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
+    body = {}
+    if method == "POST":
+        body = json.loads(event.get("body") or "{}")
+
+    action = body.get("action", "") if method == "POST" else event.get("queryStringParameters", {}).get("action", "me")
+
+    conn = get_conn()
+    try:
+        if action == "login":
+            return action_login(body, conn)
+        if action == "me":
+            return action_me(headers, conn)
+        if action == "logout":
+            return action_logout(headers, conn)
+        if action == "list_users":
+            return action_list_users(headers, conn)
+        if action == "create_user":
+            return action_create_user(body, headers, conn)
+        if action == "delete_user":
+            return action_delete_user(body, headers, conn)
+        if action == "change_password":
+            return action_change_password(body, headers, conn)
+        return err(f"Unknown action: {action}")
+    finally:
+        conn.close()

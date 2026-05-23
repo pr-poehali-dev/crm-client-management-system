@@ -1,0 +1,25 @@
+{
+  "tests": [
+    {
+      "name": "Login with wrong credentials",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "login", "login": "wrong", "password": "wrong"},
+      "expectedStatus": 401
+    },
+    {
+      "name": "Login with correct credentials",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "login", "login": "admin", "password": "admin123"},
+      "expectedStatus": 200
+    },
+    {
+      "name": "Me without session",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "me"},
+      "expectedStatus": 401
+    }
+  ]
+}
