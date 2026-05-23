@@ -192,7 +192,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default function Index() {
-  const { user, logout } = useAuth();
+  const { user, logout, token } = useAuth();
   const navigate = useNavigate();
   const isAdmin = user?.role === "admin";
 
@@ -208,7 +208,9 @@ export default function Index() {
   const loadCandidates = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(API);
+      const res = await fetch(API, {
+        headers: token ? { "X-Session-Id": token } : {},
+      });
       const data: ApiCandidate[] = JSON.parse(await res.text());
       setCandidates(data.map(fromApi));
     } catch (e) {
@@ -216,7 +218,7 @@ export default function Index() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => { loadCandidates(); }, [loadCandidates]);
 

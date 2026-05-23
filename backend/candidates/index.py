@@ -13,8 +13,27 @@ SCHEMA = os.environ.get("MAIN_DB_SCHEMA", "t_p71061117_crm_client_managemen")
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-Session-Id",
 }
+
+AUTH_SCHEMA = os.environ.get("MAIN_DB_SCHEMA", "t_p71061117_crm_client_managemen")
+
+
+def get_session_user(conn, session_id: str):
+    if not session_id:
+        return None
+    cur = conn.cursor()
+    cur.execute(
+        f"SELECT u.id, u.full_name, u.role FROM {AUTH_SCHEMA}.sessions s "
+        f"JOIN {AUTH_SCHEMA}.users u ON u.id = s.user_id "
+        f"WHERE s.token = %s AND s.expires_at > NOW()",
+        (session_id,),
+    )
+    row = cur.fetchone()
+    cur.close()
+    if not row:
+        return None
+    return {"id": row[0], "fullName": row[1], "role": row[2]}
 
 
 def get_conn():
@@ -176,12 +195,22 @@ def handler(event: dict, context) -> dict:
     if method == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
-    # GET — список всех кандидатов
+    headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
+    session_id = headers.get("x-session-id", "")
+
+    # GET — список кандидатов (admin — все, employee — только свои)
     if method == "GET":
         conn = get_conn()
-        cur = conn.cursor()
         try:
-            cur.execute(f"SELECT * FROM {SCHEMA}.candidates ORDER BY created_at DESC, id DESC")
+            session_user = get_session_user(conn, session_id)
+            cur = conn.cursor()
+            if session_user and session_user["role"] == "employee":
+                cur.execute(
+                    f"SELECT * FROM {SCHEMA}.candidates WHERE employee_name = %s ORDER BY created_at DESC, id DESC",
+                    (session_user["fullName"],),
+                )
+            else:
+                cur.execute(f"SELECT * FROM {SCHEMA}.candidates ORDER BY created_at DESC, id DESC")
             rows = [row_to_dict(r, cur) for r in cur.fetchall()]
             return {"statusCode": 200, "headers": CORS, "body": json.dumps(rows, ensure_ascii=False)}
         finally:
