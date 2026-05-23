@@ -25,9 +25,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4" style={{ background: "hsl(217, 60%, 18%)" }}>
-            <Icon name="Users" size={22} className="text-white" />
-          </div>
+          <img src="https://cdn.poehali.dev/projects/9349667d-fe54-44ac-a18d-809d42c7c67e/files/ba8ed286-2fa3-48f9-9a22-0eacab2cada0.jpg" alt="logo" className="w-16 h-16 rounded-xl object-cover mx-auto mb-4 shadow-md" />
           <div className="font-semibold text-lg text-foreground">CRM — Учёт кандидатов</div>
           <div className="text-sm text-muted-foreground mt-1">Войдите в систему</div>
         </div>
