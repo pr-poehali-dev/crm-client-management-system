@@ -1,0 +1,1 @@
+ALTER TABLE t_p71061117_crm_client_managemen.users ADD COLUMN is_active boolean NOT NULL DEFAULT true;

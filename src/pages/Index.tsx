@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import func2url from "../../backend/func2url.json";
 
 const API = (func2url as Record<string, string>)["candidates"];
+const AUTH_URL = (func2url as Record<string, string>)["auth"];
 const UPLOAD_URL = API;
 
 interface FileItem {
@@ -204,6 +205,26 @@ export default function Index() {
   const [form, setForm] = useState<Omit<Candidate, "id" | "createdAt">>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
+  const [pwdModal, setPwdModal] = useState(false);
+  const [pwdForm, setPwdForm] = useState({ oldPassword: "", newPassword: "" });
+  const [pwdError, setPwdError] = useState<string | null>(null);
+  const [pwdSaving, setPwdSaving] = useState(false);
+
+  const handleChangeOwnPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdError(null);
+    setPwdSaving(true);
+    const res = await fetch(AUTH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+      body: JSON.stringify({ action: "change_own_password", ...pwdForm }),
+    });
+    const raw = await res.text();
+    const data = JSON.parse(typeof JSON.parse(raw) === "string" ? JSON.parse(raw) : raw);
+    if (!res.ok) { setPwdError(data.error || "Ошибка"); }
+    else { setPwdModal(false); setPwdForm({ oldPassword: "", newPassword: "" }); }
+    setPwdSaving(false);
+  };
 
   const loadCandidates = useCallback(async () => {
     setLoading(true);
@@ -298,7 +319,10 @@ export default function Index() {
               <span className="hidden md:inline">Пользователи</span>
             </button>
           )}
-          <div className="text-white/50 text-xs hidden md:block">{user?.fullName || user?.login}</div>
+          <button onClick={() => { setPwdError(null); setPwdForm({ oldPassword: "", newPassword: "" }); setPwdModal(true); }} className="flex items-center gap-1 text-white/60 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Сменить пароль">
+            <Icon name="User" size={14} />
+            <span className="hidden md:inline">{user?.fullName || user?.login}</span>
+          </button>
           <button onClick={async () => { await logout(); navigate("/login"); }} className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Выйти">
             <Icon name="LogOut" size={14} />
           </button>
@@ -529,6 +553,38 @@ export default function Index() {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Смена своего пароля */}
+      <Dialog open={pwdModal} onOpenChange={setPwdModal}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+              <Icon name="KeyRound" size={15} />Смена пароля
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleChangeOwnPassword} className="space-y-3 pt-1">
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Текущий пароль</Label>
+              <Input type="password" value={pwdForm.oldPassword}
+                onChange={(e) => setPwdForm({ ...pwdForm, oldPassword: e.target.value })}
+                placeholder="Введите текущий пароль" className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Новый пароль</Label>
+              <Input type="password" value={pwdForm.newPassword}
+                onChange={(e) => setPwdForm({ ...pwdForm, newPassword: e.target.value })}
+                placeholder="Введите новый пароль" className="h-8 text-sm" />
+            </div>
+            {pwdError && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">{pwdError}</div>}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" onClick={() => setPwdModal(false)} className="h-8 text-xs">Отмена</Button>
+              <Button type="submit" disabled={pwdSaving || !pwdForm.oldPassword || !pwdForm.newPassword} className="h-8 text-xs text-white" style={{ background: "hsl(217,60%,20%)" }}>
+                {pwdSaving ? <Icon name="Loader2" size={13} className="animate-spin" /> : "Сохранить"}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

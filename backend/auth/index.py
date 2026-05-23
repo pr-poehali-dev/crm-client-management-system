@@ -40,7 +40,7 @@ def get_session_user(conn, session_id: str):
     cur.execute(
         f"SELECT u.id, u.login, u.full_name, u.role FROM {SCHEMA}.sessions s "
         f"JOIN {SCHEMA}.users u ON u.id = s.user_id "
-        f"WHERE s.token = %s AND s.expires_at > NOW()",
+        f"WHERE s.token = %s AND s.expires_at > NOW() AND u.is_active = true",
         (session_id,),
     )
     row = cur.fetchone()
@@ -58,15 +58,17 @@ def action_login(body, conn):
 
     cur = conn.cursor()
     cur.execute(
-        f"SELECT id, full_name, role FROM {SCHEMA}.users WHERE login = %s AND password_hash = %s",
+        f"SELECT id, full_name, role, is_active FROM {SCHEMA}.users WHERE login = %s AND password_hash = %s",
         (login, md5(password)),
     )
     row = cur.fetchone()
     cur.close()
     if not row:
         return err("Неверный логин или пароль", 401)
+    if not row[3]:
+        return err("Аккаунт заблокирован. Обратитесь к администратору.", 403)
 
-    user_id, full_name, role = row
+    user_id, full_name, role, _ = row
     token = secrets.token_hex(32)
     expires = int(time.time()) + SESSION_TTL
 
@@ -104,8 +106,8 @@ def action_list_users(headers, conn):
     if not user or user["role"] != "admin":
         return err("Нет доступа", 403)
     cur = conn.cursor()
-    cur.execute(f"SELECT id, login, full_name, role, created_at FROM {SCHEMA}.users WHERE login NOT LIKE 'deleted_%' ORDER BY id")
-    rows = [{"id": r[0], "login": r[1], "fullName": r[2], "role": r[3], "createdAt": str(r[4])} for r in cur.fetchall()]
+    cur.execute(f"SELECT id, login, full_name, role, created_at, is_active FROM {SCHEMA}.users WHERE login NOT LIKE 'deleted_%' ORDER BY id")
+    rows = [{"id": r[0], "login": r[1], "fullName": r[2], "role": r[3], "createdAt": str(r[4]), "isActive": r[5]} for r in cur.fetchall()]
     cur.close()
     return ok({"users": rows})
 
@@ -138,19 +140,26 @@ def action_create_user(body, headers, conn):
     return ok({"id": new_id, "login": login, "fullName": full_name, "role": role}, 201)
 
 
-def action_delete_user(body, headers, conn):
+def action_toggle_user(body, headers, conn):
     user = get_session_user(conn, headers.get("x-session-id", ""))
     if not user or user["role"] != "admin":
         return err("Нет доступа", 403)
     target_id = int(body.get("id", 0))
     if target_id == user["id"]:
-        return err("Нельзя удалить самого себя")
+        return err("Нельзя заблокировать самого себя")
     cur = conn.cursor()
-    cur.execute(f"UPDATE {SCHEMA}.sessions SET expires_at = NOW() WHERE user_id = %s", (target_id,))
-    cur.execute(f"UPDATE {SCHEMA}.users SET login = 'deleted_' || id::text, password_hash = '' WHERE id = %s", (target_id,))
+    cur.execute(f"SELECT is_active FROM {SCHEMA}.users WHERE id = %s", (target_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close()
+        return err("Пользователь не найден", 404)
+    new_state = not row[0]
+    if not new_state:
+        cur.execute(f"UPDATE {SCHEMA}.sessions SET expires_at = NOW() WHERE user_id = %s", (target_id,))
+    cur.execute(f"UPDATE {SCHEMA}.users SET is_active = %s WHERE id = %s", (new_state, target_id))
     conn.commit()
     cur.close()
-    return ok({"ok": True})
+    return ok({"ok": True, "isActive": new_state})
 
 
 def action_change_password(body, headers, conn):
@@ -163,6 +172,25 @@ def action_change_password(body, headers, conn):
         return err("Пароль не может быть пустым")
     cur = conn.cursor()
     cur.execute(f"UPDATE {SCHEMA}.users SET password_hash = %s WHERE id = %s", (md5(new_password), target_id))
+    conn.commit()
+    cur.close()
+    return ok({"ok": True})
+
+
+def action_change_own_password(body, headers, conn):
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user:
+        return err("Не авторизован", 401)
+    old_password = (body.get("oldPassword") or "").strip()
+    new_password = (body.get("newPassword") or "").strip()
+    if not old_password or not new_password:
+        return err("Заполните все поля")
+    cur = conn.cursor()
+    cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE id = %s AND password_hash = %s", (user["id"], md5(old_password)))
+    if not cur.fetchone():
+        cur.close()
+        return err("Неверный текущий пароль", 403)
+    cur.execute(f"UPDATE {SCHEMA}.users SET password_hash = %s WHERE id = %s", (md5(new_password), user["id"]))
     conn.commit()
     cur.close()
     return ok({"ok": True})
@@ -194,10 +222,12 @@ def handler(event: dict, context) -> dict:
             return action_list_users(headers, conn)
         if action == "create_user":
             return action_create_user(body, headers, conn)
-        if action == "delete_user":
-            return action_delete_user(body, headers, conn)
+        if action == "toggle_user":
+            return action_toggle_user(body, headers, conn)
         if action == "change_password":
             return action_change_password(body, headers, conn)
+        if action == "change_own_password":
+            return action_change_own_password(body, headers, conn)
         return err(f"Unknown action: {action}")
     finally:
         conn.close()

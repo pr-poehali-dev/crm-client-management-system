@@ -15,6 +15,12 @@ interface User {
   fullName: string;
   role: "admin" | "employee";
   createdAt: string;
+  isActive: boolean;
+}
+
+function apiParse(raw: string) {
+  const p = JSON.parse(raw);
+  return typeof p === "string" ? JSON.parse(p) : p;
 }
 
 export default function Users() {
@@ -37,8 +43,7 @@ export default function Users() {
       headers: authHeaders,
       body: JSON.stringify({ action: "list_users" }),
     });
-    const raw = await res.text();
-    const data = typeof JSON.parse(raw) === "string" ? JSON.parse(JSON.parse(raw)) : JSON.parse(raw);
+    const data = apiParse(await res.text());
     setUsers(data.users || []);
     setLoading(false);
   };
@@ -54,8 +59,7 @@ export default function Users() {
       headers: authHeaders,
       body: JSON.stringify({ action: "create_user", ...form }),
     });
-    const raw = await res.text();
-    const data = typeof JSON.parse(raw) === "string" ? JSON.parse(JSON.parse(raw)) : JSON.parse(raw);
+    const data = apiParse(await res.text());
     if (!res.ok) { setError(data.error || "Ошибка"); setSaving(false); return; }
     setIsModalOpen(false);
     setForm({ login: "", password: "", fullName: "", role: "employee" });
@@ -76,59 +80,84 @@ export default function Users() {
     setSaving(false);
   };
 
-  const roleLabel = (r: string) => r === "admin" ? "Администратор" : "Сотрудник";
-  const roleBadge = (r: string) => r === "admin"
-    ? <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">Администратор</span>
-    : <span className="text-xs px-2 py-0.5 rounded bg-gray-50 text-gray-600 border border-gray-200">Сотрудник</span>;
+  const handleToggle = async (u: User) => {
+    await fetch(AUTH_URL, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ action: "toggle_user", id: u.id }),
+    });
+    load();
+  };
+
+  const roleBadge = (u: User) => {
+    if (!u.isActive) return <span className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-600 border border-red-200">Заблокирован</span>;
+    if (u.role === "admin") return <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">Администратор</span>;
+    return <span className="text-xs px-2 py-0.5 rounded bg-gray-50 text-gray-600 border border-gray-200">Сотрудник</span>;
+  };
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <div className="font-semibold text-base">Пользователи системы</div>
-          <div className="text-xs text-muted-foreground mt-0.5">Управление доступом</div>
-        </div>
-        <Button onClick={() => { setError(null); setIsModalOpen(true); }} className="h-8 text-sm text-white" style={{ background: "hsl(217,60%,20%)" }}>
-          <Icon name="Plus" size={14} />Добавить
-        </Button>
-      </div>
+    <div className="min-h-screen bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+      <header className="text-white px-6 py-4 flex items-center gap-3 shadow-lg" style={{ background: "hsl(217, 60%, 18%)" }}>
+        <a href="/" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-xs">
+          <Icon name="ArrowLeft" size={14} />Назад
+        </a>
+        <div className="w-px h-5 bg-white/20" />
+        <div className="font-semibold text-sm">Пользователи системы</div>
+      </header>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Icon name="Loader2" size={22} className="animate-spin mr-2" />
-          <span className="text-sm">Загрузка...</span>
+      <div className="p-6 max-w-2xl mx-auto">
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-xs text-muted-foreground">Управление доступом сотрудников</div>
+          <Button onClick={() => { setError(null); setIsModalOpen(true); }} className="h-8 text-sm text-white" style={{ background: "hsl(217,60%,20%)" }}>
+            <Icon name="Plus" size={14} />Добавить
+          </Button>
         </div>
-      ) : (
-        <div className="space-y-2">
-          {users.map((u) => (
-            <div key={u.id} className="bg-white border border-border rounded-lg px-4 py-3 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                <Icon name="User" size={15} className="text-muted-foreground" />
+
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-muted-foreground">
+            <Icon name="Loader2" size={22} className="animate-spin mr-2" />
+            <span className="text-sm">Загрузка...</span>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {users.map((u) => (
+              <div key={u.id} className={`bg-white border rounded-lg px-4 py-3 flex items-center gap-3 ${!u.isActive ? "opacity-60 border-red-200" : "border-border"}`}>
+                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                  <Icon name={u.isActive ? "User" : "UserX"} size={15} className="text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">{u.fullName || u.login}</div>
+                  <div className="text-xs text-muted-foreground">@{u.login}</div>
+                </div>
+                {roleBadge(u)}
+                {u.id === me?.id ? (
+                  <span className="text-xs text-muted-foreground italic">Вы</span>
+                ) : (
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      onClick={() => { setPasswordModal(u); setNewPassword(""); }}
+                      className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      title="Сменить пароль"
+                    >
+                      <Icon name="KeyRound" size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleToggle(u)}
+                      className={`p-1.5 rounded transition-colors ${u.isActive ? "hover:bg-red-50 text-muted-foreground hover:text-red-600" : "hover:bg-green-50 text-muted-foreground hover:text-green-600"}`}
+                      title={u.isActive ? "Заблокировать" : "Разблокировать"}
+                    >
+                      <Icon name={u.isActive ? "Ban" : "CheckCircle"} size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium">{u.fullName || u.login}</div>
-                <div className="text-xs text-muted-foreground">@{u.login}</div>
-              </div>
-              {roleBadge(u.role)}
-              {u.id !== me?.id && (
-                <button
-                  onClick={() => { setPasswordModal(u); setNewPassword(""); }}
-                  className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                  title="Сменить пароль"
-                >
-                  <Icon name="KeyRound" size={14} />
-                </button>
-              )}
-              {u.id === me?.id && (
-                <span className="text-xs text-muted-foreground italic">Вы</span>
-              )}
-            </div>
-          ))}
-          {users.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground text-sm">Нет пользователей</div>
-          )}
-        </div>
-      )}
+            ))}
+            {users.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground text-sm">Нет пользователей</div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Создание пользователя */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -173,7 +202,7 @@ export default function Users() {
         </DialogContent>
       </Dialog>
 
-      {/* Смена пароля */}
+      {/* Смена пароля сотруднику (админом) */}
       <Dialog open={!!passwordModal} onOpenChange={() => setPasswordModal(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
