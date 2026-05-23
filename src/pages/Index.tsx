@@ -303,9 +303,7 @@ export default function Index() {
       {/* Header */}
       <header className="text-white px-6 py-4 flex items-center justify-between shadow-lg" style={{ background: "hsl(217, 60%, 18%)" }}>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-white/10 border border-white/20 rounded flex items-center justify-center">
-            <Icon name="Users" size={18} className="text-white" />
-          </div>
+          <img src="https://cdn.poehali.dev/projects/9349667d-fe54-44ac-a18d-809d42c7c67e/files/ba8ed286-2fa3-48f9-9a22-0eacab2cada0.jpg" alt="logo" className="w-9 h-9 rounded object-cover border border-white/20" />
           <div>
             <div className="font-semibold text-base tracking-wide leading-tight">CRM — Учёт кандидатов</div>
             <div className="text-white/50 text-xs font-light">Система управления персоналом</div>
