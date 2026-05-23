@@ -228,7 +228,11 @@ export default function Index() {
     )
   );
 
-  const openAdd = () => { setForm(EMPTY); setEditingId(null); setIsModalOpen(true); };
+  const openAdd = () => {
+    setForm({ ...EMPTY, employeeName: user?.fullName || "" });
+    setEditingId(null);
+    setIsModalOpen(true);
+  };
   const openEdit = (c: Candidate) => {
     const { id, createdAt, ...rest } = c;
     setForm(rest); setEditingId(id); setIsModalOpen(true);
