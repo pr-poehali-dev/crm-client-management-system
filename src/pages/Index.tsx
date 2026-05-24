@@ -22,10 +22,18 @@ interface FileItem {
 interface Candidate {
   id: number;
   fullName: string;
+  birthDate: string;
+  city: string;
+  citizenship: string;
+  hasInn: boolean;
+  hasSnils: boolean;
+  relations: string;
   age: string;
   criminalRecord: string;
   chronicDiseases: string;
   dispensaryRecord: string;
+  phone: string;
+  arrivalDate: string;
   notes: string;
   docPhotos: FileItem[];
   relationPhotos: FileItem[];
@@ -39,10 +47,18 @@ interface Candidate {
 interface ApiCandidate {
   id: string;
   full_name: string;
+  birth_date: string;
+  city: string;
+  citizenship: string;
+  has_inn: boolean;
+  has_snils: boolean;
+  relations: string;
   age: string;
   criminal_record: string;
   chronic_diseases: string;
   dispensary_record: string;
+  phone: string;
+  arrival_date: string;
   notes: string;
   doc_photos: FileItem[];
   relation_photos: FileItem[];
@@ -57,10 +73,18 @@ function fromApi(r: ApiCandidate): Candidate {
   return {
     id: Number(r.id),
     fullName: r.full_name,
+    birthDate: r.birth_date || "",
+    city: r.city || "",
+    citizenship: r.citizenship || "",
+    hasInn: !!r.has_inn,
+    hasSnils: !!r.has_snils,
+    relations: r.relations || "",
     age: r.age,
     criminalRecord: r.criminal_record,
     chronicDiseases: r.chronic_diseases,
     dispensaryRecord: r.dispensary_record,
+    phone: r.phone || "",
+    arrivalDate: r.arrival_date || "",
     notes: r.notes,
     docPhotos: r.doc_photos || [],
     relationPhotos: r.relation_photos || [],
@@ -75,10 +99,18 @@ function fromApi(r: ApiCandidate): Candidate {
 function toApi(c: Omit<Candidate, "id" | "createdAt">) {
   return {
     fullName: c.fullName,
+    birthDate: c.birthDate,
+    city: c.city,
+    citizenship: c.citizenship,
+    hasInn: c.hasInn,
+    hasSnils: c.hasSnils,
+    relations: c.relations,
     age: c.age,
     criminalRecord: c.criminalRecord,
     chronicDiseases: c.chronicDiseases,
     dispensaryRecord: c.dispensaryRecord,
+    phone: c.phone,
+    arrivalDate: c.arrivalDate,
     notes: c.notes,
     docPhotos: c.docPhotos,
     relationPhotos: c.relationPhotos,
@@ -91,8 +123,11 @@ function toApi(c: Omit<Candidate, "id" | "createdAt">) {
 }
 
 const EMPTY: Omit<Candidate, "id" | "createdAt"> = {
-  fullName: "", age: "", criminalRecord: "", chronicDiseases: "",
-  dispensaryRecord: "", notes: "", docPhotos: [], relationPhotos: [],
+  fullName: "", birthDate: "", city: "", citizenship: "",
+  hasInn: false, hasSnils: false, relations: "",
+  age: "", criminalRecord: "", chronicDiseases: "",
+  dispensaryRecord: "", phone: "", arrivalDate: "",
+  notes: "", docPhotos: [], relationPhotos: [],
   tickets: [], contractPhotos: [], employeeName: "", company: "",
 };
 
@@ -422,49 +457,100 @@ export default function Index() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
+            {/* 1. ФИО */}
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">1. ФИО кандидата *</Label>
+              <Input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+                placeholder="Фамилия Имя Отчество" className="h-9 text-sm" />
+            </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2 space-y-1">
-                <Label className="text-xs font-medium">ФИО кандидата *</Label>
-                <Input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-                  placeholder="Фамилия Имя Отчество" className="h-9 text-sm" />
-              </div>
+              {/* 2. Дата рождения */}
               <div className="space-y-1">
-                <Label className="text-xs font-medium">Полных лет</Label>
-                <Input type="number" value={form.age} onChange={(e) => setForm({ ...form, age: e.target.value })}
-                  placeholder="Возраст" className="h-9 text-sm" />
+                <Label className="text-xs font-medium">2. Дата рождения</Label>
+                <Input value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
+                  placeholder="дд.мм.гггг" className="h-9 text-sm" />
               </div>
+              {/* 3. Город */}
               <div className="space-y-1">
-                <Label className="text-xs font-medium">ФИО сотрудника</Label>
-                <Input value={form.employeeName} onChange={(e) => setForm({ ...form, employeeName: e.target.value })}
-                  placeholder="Ответственный сотрудник" className="h-9 text-sm" />
+                <Label className="text-xs font-medium">3. Город проживания</Label>
+                <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  placeholder="Город" className="h-9 text-sm" />
               </div>
+              {/* 4. Гражданство */}
               <div className="space-y-1">
-                <Label className="text-xs font-medium">Компания</Label>
-                <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })}
-                  placeholder="Название компании" className="h-9 text-sm" />
+                <Label className="text-xs font-medium">4. Гражданство РФ</Label>
+                <Input value={form.citizenship} onChange={(e) => setForm({ ...form, citizenship: e.target.value })}
+                  placeholder="Гражданство" className="h-9 text-sm" />
+              </div>
+              {/* 9. Телефон */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">9. Телефон для связи</Label>
+                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="+7 (___) ___-__-__" className="h-9 text-sm" />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Судимость / статья</Label>
-                <Input value={form.criminalRecord} onChange={(e) => setForm({ ...form, criminalRecord: e.target.value })}
-                  placeholder="Нет / укажите статью" className="h-9 text-sm" />
+            {/* 5. Документы */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">5. Наличие документов</Label>
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2 cursor-pointer text-sm select-none">
+                  <input type="checkbox" checked={form.hasInn} onChange={(e) => setForm({ ...form, hasInn: e.target.checked })} className="w-4 h-4 accent-blue-700 rounded" />
+                  ИНН
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm select-none">
+                  <input type="checkbox" checked={form.hasSnils} onChange={(e) => setForm({ ...form, hasSnils: e.target.checked })} className="w-4 h-4 accent-blue-700 rounded" />
+                  СНИЛС
+                </label>
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {/* 6. Отношения */}
               <div className="space-y-1">
-                <Label className="text-xs font-medium">Хронические заболевания</Label>
+                <Label className="text-xs font-medium">6. Отношения</Label>
+                <Input value={form.relations} onChange={(e) => setForm({ ...form, relations: e.target.value })}
+                  placeholder="Семейное положение / дети" className="h-9 text-sm" />
+              </div>
+              {/* 7. Заболевания */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">7. Заболевания</Label>
                 <Input value={form.chronicDiseases} onChange={(e) => setForm({ ...form, chronicDiseases: e.target.value })}
                   placeholder="Нет / укажите" className="h-9 text-sm" />
               </div>
+              {/* 8. Судимости */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">8. Судимости</Label>
+                <Input value={form.criminalRecord} onChange={(e) => setForm({ ...form, criminalRecord: e.target.value })}
+                  placeholder="Нет / укажите статью" className="h-9 text-sm" />
+              </div>
+              {/* 10. Прибытие */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">10. Прибытие / дата билетов</Label>
+                <Input value={form.arrivalDate} onChange={(e) => setForm({ ...form, arrivalDate: e.target.value })}
+                  placeholder="Дата или описание" className="h-9 text-sm" />
+              </div>
+            </div>
+            {/* Учёт ПНД/НД + Сотрудник + Компания */}
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1">
                 <Label className="text-xs font-medium">Учёт ПНД / НД</Label>
                 <Input value={form.dispensaryRecord} onChange={(e) => setForm({ ...form, dispensaryRecord: e.target.value })}
                   placeholder="Нет / укажите" className="h-9 text-sm" />
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">ФИО сотрудника</Label>
+                <Input value={form.employeeName} onChange={(e) => setForm({ ...form, employeeName: e.target.value })}
+                  placeholder="Ответственный" className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Компания</Label>
+                <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })}
+                  placeholder="Компания" className="h-9 text-sm" />
+              </div>
             </div>
             <div className="space-y-1">
               <Label className="text-xs font-medium">Заметки</Label>
               <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                placeholder="Дополнительная информация о кандидате..." rows={3} className="text-sm resize-none" />
+                placeholder="Дополнительная информация..." rows={2} className="text-sm resize-none" />
             </div>
             <div className="grid grid-cols-2 gap-4 pt-1">
               <div className="space-y-1">
@@ -508,12 +594,21 @@ export default function Index() {
               </DialogHeader>
               <div className="space-y-4 text-sm pt-2">
                 <div className="grid grid-cols-2 gap-3">
-                  <InfoRow label="Возраст" value={`${detail.age} лет`} />
-                  <InfoRow label="ФИО сотрудника" value={detail.employeeName} />
-                  <InfoRow label="Компания" value={detail.company} />
-                  <InfoRow label="Судимость / статья" value={<StatusBadge value={detail.criminalRecord} />} />
-                  <InfoRow label="Хронические заболевания" value={<StatusBadge value={detail.chronicDiseases} />} />
+                  <InfoRow label="1. ФИО" value={detail.fullName} />
+                  <InfoRow label="2. Дата рождения" value={detail.birthDate} />
+                  <InfoRow label="3. Город проживания" value={detail.city} />
+                  <InfoRow label="4. Гражданство РФ" value={detail.citizenship} />
+                  <InfoRow label="5. ИНН" value={detail.hasInn ? "✅ есть" : "❌ нет"} />
+                  <InfoRow label="5. СНИЛС" value={detail.hasSnils ? "✅ есть" : "❌ нет"} />
+                  <InfoRow label="6. Отношения" value={detail.relations} />
+                  <InfoRow label="7. Заболевания" value={<StatusBadge value={detail.chronicDiseases} />} />
+                  <InfoRow label="8. Судимости" value={<StatusBadge value={detail.criminalRecord} />} />
+                  <InfoRow label="9. Телефон" value={detail.phone} />
+                  <InfoRow label="10. Прибытие / билеты" value={detail.arrivalDate} />
+                  <InfoRow label="Возраст" value={detail.age ? `${detail.age} лет` : ""} />
                   <InfoRow label="Учёт ПНД / НД" value={<StatusBadge value={detail.dispensaryRecord} />} />
+                  <InfoRow label="Сотрудник" value={detail.employeeName} />
+                  <InfoRow label="Компания" value={detail.company} />
                   <InfoRow label="Дата добавления" value={detail.createdAt} />
                 </div>
                 {detail.notes && (

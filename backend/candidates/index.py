@@ -111,8 +111,9 @@ def action_create(body, cur, conn):
     cur.execute(
         f"""INSERT INTO {SCHEMA}.candidates
             (full_name, age, criminal_record, chronic_diseases, dispensary_record,
-             notes, doc_photos, relation_photos, tickets, contract_photos, employee_name, company, created_at)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
+             notes, doc_photos, relation_photos, tickets, contract_photos, employee_name, company, created_at,
+             birth_date, city, citizenship, has_inn, has_snils, relations, phone, arrival_date)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
         (
             body.get("fullName", ""),
             body.get("age", ""),
@@ -127,24 +128,38 @@ def action_create(body, cur, conn):
             body.get("employeeName", ""),
             body.get("company", ""),
             body.get("createdAt"),
+            body.get("birthDate", ""),
+            body.get("city", ""),
+            body.get("citizenship", ""),
+            bool(body.get("hasInn", False)),
+            bool(body.get("hasSnils", False)),
+            body.get("relations", ""),
+            body.get("phone", ""),
+            body.get("arrivalDate", ""),
         ),
     )
     row = row_to_dict(cur.fetchone(), cur)
     conn.commit()
 
     try:
-        name = body.get("fullName", "—")
-        age = body.get("age", "—")
-        employee = body.get("employeeName", "—")
-        company = body.get("company", "—")
-        date = body.get("createdAt", "—")
+        g = lambda k, d="—": body.get(k) or d
+        inn_str = "✅ есть" if body.get("hasInn") else "❌ нет"
+        snils_str = "✅ есть" if body.get("hasSnils") else "❌ нет"
         send_telegram(
-            f"👤 <b>Новый кандидат добавлен</b>\n\n"
-            f"<b>ФИО:</b> {name}\n"
-            f"<b>Возраст:</b> {age}\n"
-            f"<b>Сотрудник:</b> {employee}\n"
-            f"<b>Компания:</b> {company}\n"
-            f"<b>Дата:</b> {date}"
+            f"👤 <b>Новый кандидат</b>\n\n"
+            f"<b>1. ФИО:</b> {g('fullName')}\n"
+            f"<b>2. Дата рождения:</b> {g('birthDate')}\n"
+            f"<b>3. Город проживания:</b> {g('city')}\n"
+            f"<b>4. Гражданство РФ:</b> {g('citizenship')}\n"
+            f"<b>5. Документы:</b>\n"
+            f"   ИНН — {inn_str}\n"
+            f"   СНИЛС — {snils_str}\n"
+            f"<b>6. Отношения:</b> {g('relations')}\n"
+            f"<b>7. Заболевания:</b> {g('chronicDiseases')}\n"
+            f"<b>8. Судимости:</b> {g('criminalRecord')}\n"
+            f"<b>9. Телефон:</b> {g('phone')}\n"
+            f"<b>10. Прибытие/билеты:</b> {g('arrivalDate')}\n\n"
+            f"<i>Сотрудник: {g('employeeName')} | {g('company')}</i>"
         )
     except Exception:
         pass
@@ -158,7 +173,9 @@ def action_update(body, cur, conn):
         f"""UPDATE {SCHEMA}.candidates SET
             full_name=%s, age=%s, criminal_record=%s, chronic_diseases=%s,
             dispensary_record=%s, notes=%s, doc_photos=%s, relation_photos=%s,
-            tickets=%s, contract_photos=%s, employee_name=%s, company=%s
+            tickets=%s, contract_photos=%s, employee_name=%s, company=%s,
+            birth_date=%s, city=%s, citizenship=%s, has_inn=%s, has_snils=%s,
+            relations=%s, phone=%s, arrival_date=%s
             WHERE id=%s RETURNING *""",
         (
             body.get("fullName", ""),
@@ -173,6 +190,14 @@ def action_update(body, cur, conn):
             json.dumps(body.get("contractPhotos", []), ensure_ascii=False),
             body.get("employeeName", ""),
             body.get("company", ""),
+            body.get("birthDate", ""),
+            body.get("city", ""),
+            body.get("citizenship", ""),
+            bool(body.get("hasInn", False)),
+            bool(body.get("hasSnils", False)),
+            body.get("relations", ""),
+            body.get("phone", ""),
+            body.get("arrivalDate", ""),
             candidate_id,
         ),
     )
