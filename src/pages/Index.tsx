@@ -391,7 +391,7 @@ export default function Index() {
           <table className="w-full text-xs border-collapse" style={{ minWidth: "960px" }}>
             <thead>
               <tr style={{ background: "hsl(217, 60%, 22%)" }}>
-                {["№", "ФИО", "Лет", "Судимость", "Хр. болезни", "ПНД/НД",
+                {["№", "ФИО", "Телефон", "Лет", "Судимость", "Хр. болезни", "ПНД/НД",
                   "Заметки", "Доки", "Отнош.", "Билеты", "Контракт",
                   "Сотрудник", "Компания", "Дата", ""].map((h, i) => (
                   <th key={i} className="text-left px-2 py-2 font-medium text-xs tracking-wide text-white/80 border-b border-white/10 whitespace-nowrap">{h}</th>
@@ -401,7 +401,7 @@ export default function Index() {
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={15} className="text-center py-20 text-muted-foreground">
+                  <td colSpan={16} className="text-center py-20 text-muted-foreground">
                     <Icon name="Inbox" size={36} className="mx-auto mb-3 opacity-25" />
                     <div className="text-sm">Нет записей. Добавьте первого кандидата.</div>
                   </td>
@@ -411,6 +411,7 @@ export default function Index() {
                 <tr key={c.id} className="border-b border-border hover:bg-blue-50/50 transition-colors group animate-fade-in bg-white">
                   <td className="px-2 py-2 text-muted-foreground font-mono">{idx + 1}</td>
                   <td className="px-2 py-2 font-semibold whitespace-nowrap max-w-[160px] truncate">{c.fullName}</td>
+                  <td className="px-2 py-2 whitespace-nowrap font-mono">{c.phone || <span className="text-muted-foreground">—</span>}</td>
                   <td className="px-2 py-2 text-center font-mono">{c.age}</td>
                   <td className="px-2 py-2"><StatusBadge value={c.criminalRecord} /></td>
                   <td className="px-2 py-2"><StatusBadge value={c.chronicDiseases} /></td>
