@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import Icon from "@/components/ui/icon";
 import { useAuth } from "@/contexts/AuthContext";
 import func2url from "../../backend/func2url.json";
+import * as XLSX from "xlsx";
 
 const API = (func2url as Record<string, string>)["candidates"];
 
@@ -110,6 +111,23 @@ export default function Leads() {
     if (detailId === id) setDetailId(null);
   };
 
+  const handleExportExcel = () => {
+    const rows = filtered.map((l, idx) => ({
+      "№": idx + 1,
+      "ФИО": l.fullName,
+      "Телефон": l.phone,
+      "Город": l.city,
+      "Гражданство": l.citizenship,
+      "Примечание": l.notes,
+      "Дата заявки": l.createdAt ? new Date(l.createdAt).toLocaleString("ru-RU") : "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Лиды");
+    const date = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `leads_${date}.xlsx`);
+  };
+
   const detail = detailId !== null ? leads.find((l) => l.id === detailId) : null;
 
   return (
@@ -155,9 +173,20 @@ export default function Leads() {
         <span className="text-xs text-muted-foreground">
           Показано: <b className="text-foreground">{filtered.length}</b> из {leads.length}
         </span>
-        <button onClick={loadLeads} className="ml-auto p-1.5 rounded hover:bg-muted text-muted-foreground transition-colors" title="Обновить">
-          <Icon name={loading ? "Loader2" : "RefreshCw"} size={14} className={loading ? "animate-spin" : ""} />
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={handleExportExcel}
+            disabled={filtered.length === 0}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Скачать в Excel"
+          >
+            <Icon name="FileSpreadsheet" size={13} />
+            <span>Excel</span>
+          </button>
+          <button onClick={loadLeads} className="p-1.5 rounded hover:bg-muted text-muted-foreground transition-colors" title="Обновить">
+            <Icon name={loading ? "Loader2" : "RefreshCw"} size={14} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
       </div>
 
       {/* Table */}
