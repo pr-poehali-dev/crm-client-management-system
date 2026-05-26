@@ -9,6 +9,7 @@ import Icon from "@/components/ui/icon";
 import { useAuth } from "@/contexts/AuthContext";
 import func2url from "../../backend/func2url.json";
 import * as XLSX from "xlsx";
+import WelcomeTutorial from "@/components/WelcomeTutorial";
 
 const API = (func2url as Record<string, string>)["candidates"];
 const AUTH_URL = (func2url as Record<string, string>)["auth"];
@@ -231,6 +232,24 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+function Th({ children, tip }: { children: React.ReactNode; tip?: string }) {
+  return (
+    <th className="text-left px-2 py-2 font-medium text-xs tracking-wide text-white/80 border-b border-white/10 whitespace-nowrap">
+      {tip ? (
+        <span className="group relative inline-flex items-center gap-1 cursor-help">
+          {children}
+          <span className="opacity-40 group-hover:opacity-80 transition-opacity">
+            <Icon name="Info" size={10} />
+          </span>
+          <span className="pointer-events-none absolute left-0 top-full mt-1.5 z-50 w-48 rounded-lg bg-gray-900 text-white text-xs px-3 py-2 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity leading-relaxed font-normal tracking-normal">
+            {tip}
+          </span>
+        </span>
+      ) : children}
+    </th>
+  );
+}
+
 export default function Index() {
   const { user, logout, token } = useAuth();
   const navigate = useNavigate();
@@ -388,6 +407,7 @@ export default function Index() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+      <WelcomeTutorial />
       {/* Header */}
       <header className="text-white px-6 py-4 flex items-center justify-between shadow-lg" style={{ background: "hsl(217, 60%, 18%)" }}>
         <div className="flex items-center gap-3">
@@ -421,6 +441,10 @@ export default function Index() {
           <button onClick={() => { setPwdError(null); setPwdForm({ oldPassword: "", newPassword: "" }); setPwdModal(true); }} className="flex items-center gap-1 text-white/60 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Сменить пароль">
             <Icon name="User" size={14} />
             <span className="hidden md:inline">{user?.fullName || user?.login}</span>
+          </button>
+          <button onClick={() => navigate("/help")} className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Инструкция">
+            <Icon name="BookOpen" size={14} />
+            <span className="hidden md:inline">Инструкция</span>
           </button>
           <button onClick={async () => { await logout(); navigate("/login"); }} className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Выйти">
             <Icon name="LogOut" size={14} />
@@ -475,11 +499,23 @@ export default function Index() {
           <table className="w-full text-xs border-collapse" style={{ minWidth: "960px" }}>
             <thead>
               <tr style={{ background: "hsl(217, 60%, 22%)" }}>
-                {["№", "ФИО", "Телефон", "Лет", "Судимость", "Хр. болезни", "ПНД/НД",
-                  "Заметки", "Доки", "Отнош.", "Билеты", "Контракт",
-                  "Сотрудник", "Компания", "Дата", "Прозвонен", ""].map((h, i) => (
-                  <th key={i} className="text-left px-2 py-2 font-medium text-xs tracking-wide text-white/80 border-b border-white/10 whitespace-nowrap">{h}</th>
-                ))}
+                <Th>№</Th>
+                <Th tip="Полное имя кандидата">ФИО</Th>
+                <Th tip="Контактный телефон">Телефон</Th>
+                <Th tip="Возраст кандидата">Лет</Th>
+                <Th tip="Наличие судимости. «Нет» — отсутствует">Судимость</Th>
+                <Th tip="Хронические заболевания. «Нет» — здоров">Хр. болезни</Th>
+                <Th tip="Состоит ли на учёте в ПНД или НД. «Нет» — не состоит">ПНД/НД</Th>
+                <Th tip="Дополнительные заметки по кандидату">Заметки</Th>
+                <Th tip="Количество прикреплённых фото документов">Доки</Th>
+                <Th tip="Фото документов об отношениях (семья, дети)">Отнош.</Th>
+                <Th tip="Прикреплённые билеты (авиа, ЖД и т.д.)">Билеты</Th>
+                <Th tip="Фото подписанного контракта">Контракт</Th>
+                <Th tip="Сотрудник, добавивший запись">Сотрудник</Th>
+                <Th tip="Компания кандидата">Компания</Th>
+                <Th tip="Дата добавления в систему">Дата</Th>
+                <Th tip="Отметьте галочкой после звонка кандидату. Кнопка «Непрозвоненные» скрывает отмеченных.">Прозвонен</Th>
+                <Th></Th>
               </tr>
             </thead>
             <tbody>
