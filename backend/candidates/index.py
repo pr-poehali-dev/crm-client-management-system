@@ -213,6 +213,20 @@ def action_delete(body, cur, conn):
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
 
 
+def action_toggle_called(body, cur, conn):
+    candidate_id = int(body.get("id", 0))
+    called = bool(body.get("called", False))
+    cur.execute(
+        f"UPDATE {SCHEMA}.candidates SET called=%s WHERE id=%s RETURNING id, called",
+        (called, candidate_id),
+    )
+    row = cur.fetchone()
+    if not row:
+        return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Not found"})}
+    conn.commit()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"id": str(row[0]), "called": row[1]})}
+
+
 def action_convert_lead(body, cur, conn):
     candidate_id = int(body.get("id", 0))
     cur.execute(
@@ -446,6 +460,8 @@ def handler(event: dict, context) -> dict:
                 return action_delete(body, cur, conn)
             if action == "convert_lead":
                 return action_convert_lead(body, cur, conn)
+            if action == "toggle_called":
+                return action_toggle_called(body, cur, conn)
             return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": f"Unknown action: {action}"})}
         finally:
             cur.close()

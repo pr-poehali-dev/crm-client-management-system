@@ -18,6 +18,7 @@ interface Lead {
   citizenship: string;
   notes: string;
   createdAt: string;
+  called: boolean;
 }
 
 interface ApiLead {
@@ -28,6 +29,7 @@ interface ApiLead {
   citizenship: string;
   notes: string;
   created_at: string;
+  called: boolean;
 }
 
 function fromApi(r: ApiLead): Lead {
@@ -39,6 +41,7 @@ function fromApi(r: ApiLead): Lead {
     citizenship: r.citizenship || "",
     notes: r.notes || "",
     createdAt: r.created_at || "",
+    called: r.called || false,
   };
 }
 
@@ -101,6 +104,15 @@ export default function Leads() {
     }
   };
 
+  const handleToggleCalled = async (id: number, called: boolean) => {
+    setLeads((prev) => prev.map((l) => l.id === id ? { ...l, called } : l));
+    await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+      body: JSON.stringify({ action: "toggle_called", id, called }),
+    });
+  };
+
   const handleDelete = async (id: number) => {
     await fetch(API, {
       method: "POST",
@@ -120,6 +132,7 @@ export default function Leads() {
       "Гражданство": l.citizenship,
       "Примечание": l.notes,
       "Дата заявки": l.createdAt ? new Date(l.createdAt).toLocaleString("ru-RU") : "",
+      "Прозвонен": l.called ? "Да" : "Нет",
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -200,7 +213,7 @@ export default function Leads() {
           <table className="w-full text-xs border-collapse" style={{ minWidth: "700px" }}>
             <thead>
               <tr style={{ background: "hsl(217, 60%, 22%)" }}>
-                {["№", "ФИО", "Телефон", "Город", "Гражданство", "Примечание", "Дата", ""].map((h, i) => (
+                {["№", "ФИО", "Телефон", "Город", "Гражданство", "Примечание", "Дата", "Прозвонен", ""].map((h, i) => (
                   <th key={i} className="text-left px-3 py-2 font-medium text-xs tracking-wide text-white/80 border-b border-white/10 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -225,6 +238,15 @@ export default function Leads() {
                     <div className="truncate text-muted-foreground">{l.notes || "—"}</div>
                   </td>
                   <td className="px-3 py-2 font-mono text-muted-foreground whitespace-nowrap">{l.createdAt}</td>
+                  <td className="px-3 py-2 text-center">
+                    <button
+                      onClick={() => handleToggleCalled(l.id, !l.called)}
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${l.called ? "bg-green-500 border-green-500 text-white" : "border-gray-300 hover:border-green-400"}`}
+                      title={l.called ? "Прозвонен" : "Отметить как прозвоненный"}
+                    >
+                      {l.called && <Icon name="Check" size={11} />}
+                    </button>
+                  </td>
                   <td className="px-3 py-2 sticky right-0 bg-white group-hover:bg-amber-50/40">
                     <div className="flex items-center gap-0.5">
                       <button onClick={() => setDetailId(l.id)} className="p-1 rounded hover:bg-blue-100 text-blue-600 transition-colors" title="Подробнее">
