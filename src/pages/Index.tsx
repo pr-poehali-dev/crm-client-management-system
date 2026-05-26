@@ -346,6 +346,14 @@ export default function Index() {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-white/40 text-xs font-mono hidden md:block mr-2">Записей: {candidates.length}</span>
+          <button
+            onClick={() => navigate("/leads")}
+            className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors"
+            title="Лиды с сайта"
+          >
+            <Icon name="Zap" size={14} />
+            <span className="hidden md:inline">Лиды</span>
+          </button>
           {isAdmin && (
             <button onClick={() => navigate("/users")} className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Пользователи">
               <Icon name="UserCog" size={14} />

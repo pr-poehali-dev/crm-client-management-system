@@ -213,6 +213,17 @@ def action_delete(body, cur, conn):
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
 
 
+def action_convert_lead(body, cur, conn):
+    candidate_id = int(body.get("id", 0))
+    cur.execute(
+        f"UPDATE {SCHEMA}.candidates SET is_lead = false WHERE id=%s RETURNING *",
+        (candidate_id,),
+    )
+    row = row_to_dict(cur.fetchone(), cur)
+    conn.commit()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps(row, ensure_ascii=False)}
+
+
 def action_webhook(event: dict) -> dict:
     """Приём лида с внешнего сайта через webhook (без авторизации, опциональный секрет)."""
     from datetime import date
@@ -250,12 +261,12 @@ def action_webhook(event: dict) -> dict:
                  age, criminal_record, chronic_diseases, dispensary_record,
                  doc_photos, relation_photos, tickets, contract_photos,
                  employee_name, company, relations, birth_date, arrival_date,
-                 has_inn, has_snils, created_at)
+                 has_inn, has_snils, created_at, is_lead)
                 VALUES (%s,%s,%s,%s,%s,
                         '','','','',
                         '[]','[]','[]','[]',
                         '','','','','',
-                        false, false, %s)
+                        false, false, %s, true)
                 RETURNING id""",
             (full_name, phone, city, citizenship, notes, date.today()),
         )
@@ -296,19 +307,23 @@ def handler(event: dict, context) -> dict:
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
     session_id = headers.get("x-session-id", "")
 
-    # GET — список кандидатов (admin — все, employee — только свои)
+    # GET — список кандидатов или лидов
     if method == "GET":
+        query_params = event.get("queryStringParameters") or {}
+        mode = query_params.get("mode", "candidates")
         conn = get_conn()
         try:
             session_user = get_session_user(conn, session_id)
             cur = conn.cursor()
-            if session_user and session_user["role"] == "employee":
+            if mode == "leads":
+                cur.execute(f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = true ORDER BY created_at DESC, id DESC")
+            elif session_user and session_user["role"] == "employee":
                 cur.execute(
-                    f"SELECT * FROM {SCHEMA}.candidates WHERE employee_name = %s ORDER BY created_at DESC, id DESC",
+                    f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = false AND employee_name = %s ORDER BY created_at DESC, id DESC",
                     (session_user["fullName"],),
                 )
             else:
-                cur.execute(f"SELECT * FROM {SCHEMA}.candidates ORDER BY created_at DESC, id DESC")
+                cur.execute(f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = false ORDER BY created_at DESC, id DESC")
             rows = [row_to_dict(r, cur) for r in cur.fetchall()]
             return {"statusCode": 200, "headers": CORS, "body": json.dumps(rows, ensure_ascii=False)}
         finally:
@@ -335,6 +350,8 @@ def handler(event: dict, context) -> dict:
                 return action_update(body, cur, conn)
             if action == "delete":
                 return action_delete(body, cur, conn)
+            if action == "convert_lead":
+                return action_convert_lead(body, cur, conn)
             return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": f"Unknown action: {action}"})}
         finally:
             cur.close()
