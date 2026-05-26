@@ -235,6 +235,7 @@ export default function Index() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [leadsCount, setLeadsCount] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Omit<Candidate, "id" | "createdAt">>(EMPTY);
@@ -277,6 +278,14 @@ export default function Index() {
   }, [token]);
 
   useEffect(() => { loadCandidates(); }, [loadCandidates]);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API}?mode=leads`, { headers: { "X-Session-Id": token } })
+      .then((r) => r.text())
+      .then((raw) => { const data = JSON.parse(raw); setLeadsCount(Array.isArray(data) ? data.length : 0); })
+      .catch(() => {});
+  }, [token]);
 
   const filtered = candidates.filter((c) =>
     [c.fullName, c.employeeName, c.age].some((v) =>
@@ -348,11 +357,16 @@ export default function Index() {
           <span className="text-white/40 text-xs font-mono hidden md:block mr-2">Записей: {candidates.length}</span>
           <button
             onClick={() => navigate("/leads")}
-            className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors"
+            className="relative flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors"
             title="Лиды с сайта"
           >
             <Icon name="Zap" size={14} />
             <span className="hidden md:inline">Лиды</span>
+            {leadsCount !== null && leadsCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-amber-400 text-[hsl(217,60%,18%)] text-[10px] font-bold leading-4 text-center">
+                {leadsCount > 99 ? "99+" : leadsCount}
+              </span>
+            )}
           </button>
           {isAdmin && (
             <button onClick={() => navigate("/users")} className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Пользователи">
