@@ -62,6 +62,7 @@ export default function Leads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [showUncalled, setShowUncalled] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [convertingId, setConvertingId] = useState<number | null>(null);
 
@@ -83,11 +84,12 @@ export default function Leads() {
 
   useEffect(() => { loadLeads(); }, [loadLeads]);
 
-  const filtered = leads.filter((l) =>
-    [l.fullName, l.phone, l.city].some((v) =>
+  const filtered = leads.filter((l) => {
+    if (showUncalled && l.called) return false;
+    return [l.fullName, l.phone, l.city].some((v) =>
       v.toLowerCase().includes(search.toLowerCase())
-    )
-  );
+    );
+  });
 
   const handleConvert = async (id: number) => {
     setConvertingId(id);
@@ -183,6 +185,14 @@ export default function Leads() {
           <Input placeholder="Поиск по ФИО, телефону, городу..." value={search}
             onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-sm" />
         </div>
+        <button
+          onClick={() => setShowUncalled((v) => !v)}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border transition-colors whitespace-nowrap ${showUncalled ? "bg-orange-500 border-orange-500 text-white" : "border-border text-muted-foreground hover:border-orange-400 hover:text-orange-600"}`}
+          title="Только непрозвоненные"
+        >
+          <Icon name="PhoneMissed" size={13} />
+          <span>Непрозвоненные</span>
+        </button>
         <span className="text-xs text-muted-foreground">
           Показано: <b className="text-foreground">{filtered.length}</b> из {leads.length}
         </span>
