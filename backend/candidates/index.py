@@ -213,12 +213,85 @@ def action_delete(body, cur, conn):
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
 
 
+def action_webhook(event: dict) -> dict:
+    """Приём лида с внешнего сайта через webhook (без авторизации, опциональный секрет)."""
+    from datetime import date
+
+    webhook_secret = os.environ.get("WEBHOOK_SECRET", "")
+    if webhook_secret:
+        headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
+        if headers.get("x-webhook-secret", "") != webhook_secret:
+            return {"statusCode": 401, "headers": CORS, "body": json.dumps({"error": "Unauthorized"})}
+
+    raw_body = event.get("body", "") or ""
+    if event.get("isBase64Encoded"):
+        import base64 as _b64
+        raw_body = _b64.b64decode(raw_body).decode("utf-8")
+
+    try:
+        body = json.loads(raw_body) if raw_body else {}
+    except Exception:
+        return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "Invalid JSON"})}
+
+    full_name = body.get("full_name") or body.get("fullName") or body.get("name") or ""
+    phone = body.get("phone") or body.get("tel") or ""
+    city = body.get("city") or ""
+    citizenship = body.get("citizenship") or ""
+    source = body.get("source") or "Внешний сайт"
+    comment = body.get("notes") or body.get("comment") or ""
+    notes = f"Источник: {source}\n{comment}".strip() if comment else f"Источник: {source}"
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"""INSERT INTO {SCHEMA}.candidates
+                (full_name, phone, city, citizenship, notes,
+                 age, criminal_record, chronic_diseases, dispensary_record,
+                 doc_photos, relation_photos, tickets, contract_photos,
+                 employee_name, company, relations, birth_date, arrival_date,
+                 has_inn, has_snils, created_at)
+                VALUES (%s,%s,%s,%s,%s,
+                        '','','','',
+                        '[]','[]','[]','[]',
+                        '','','','','',
+                        false, false, %s)
+                RETURNING id""",
+            (full_name, phone, city, citizenship, notes, date.today()),
+        )
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+    finally:
+        conn.close()
+
+    try:
+        g = lambda v, d="—": v if v else d
+        send_telegram(
+            f"🔔 <b>Новый лид с сайта</b>\n\n"
+            f"<b>ФИО:</b> {g(full_name)}\n"
+            f"<b>Телефон:</b> {g(phone)}\n"
+            f"<b>Город:</b> {g(city)}\n"
+            f"<b>Гражданство:</b> {g(citizenship)}\n"
+            f"<b>Примечание:</b> {g(notes)}"
+        )
+    except Exception:
+        pass
+
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "id": new_id})}
+
+
 def handler(event: dict, context) -> dict:
-    """CRUD для кандидатов + загрузка файлов. Все операции через action в теле POST."""
+    """CRUD для кандидатов + загрузка файлов + webhook для приёма лидов с внешних сайтов."""
     method = event.get("httpMethod", "GET")
 
     if method == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
+
+    # Webhook — публичный эндпоинт, query-параметр ?action=webhook
+    query = event.get("queryStringParameters") or {}
+    if query.get("action") == "webhook":
+        return action_webhook(event)
 
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
     session_id = headers.get("x-session-id", "")
@@ -246,6 +319,9 @@ def handler(event: dict, context) -> dict:
     if method == "POST":
         body = json.loads(event.get("body") or "{}")
         action = body.get("action", "")
+
+        if action == "webhook":
+            return action_webhook(event)
 
         if action == "upload":
             return action_upload(body)

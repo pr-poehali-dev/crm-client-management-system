@@ -39,6 +39,20 @@
       "path": "/",
       "body": { "action": "upload" },
       "expectedStatus": 400
+    },
+    {
+      "name": "Webhook — приём лида с внешнего сайта",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "webhook",
+        "full_name": "Лидов Лид Лидович",
+        "phone": "+79001234567",
+        "city": "Москва",
+        "source": "test-site"
+      },
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
     }
   ]
 }
