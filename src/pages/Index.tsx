@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import Icon from "@/components/ui/icon";
 import { useAuth } from "@/contexts/AuthContext";
 import func2url from "../../backend/func2url.json";
+import * as XLSX from "xlsx";
 
 const API = (func2url as Record<string, string>)["candidates"];
 const AUTH_URL = (func2url as Record<string, string>)["auth"];
@@ -307,6 +308,35 @@ export default function Index() {
     });
   };
 
+  const handleExportExcel = () => {
+    const rows = filtered.map((c, idx) => ({
+      "№": idx + 1,
+      "ФИО": c.fullName,
+      "Телефон": c.phone,
+      "Дата рождения": c.birthDate,
+      "Город": c.city,
+      "Гражданство": c.citizenship,
+      "ИНН": c.hasInn ? "Да" : "Нет",
+      "СНИЛС": c.hasSnils ? "Да" : "Нет",
+      "Отношения": c.relations,
+      "Возраст": c.age,
+      "Судимости": c.criminalRecord,
+      "Хр. болезни": c.chronicDiseases,
+      "ПНД/НД": c.dispensaryRecord,
+      "Дата прибытия": c.arrivalDate,
+      "Заметки": c.notes,
+      "Сотрудник": c.employeeName,
+      "Компания": c.company,
+      "Дата добавления": c.createdAt,
+      "Прозвонен": c.called ? "Да" : "Нет",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Кандидаты");
+    const date = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `candidates_${date}.xlsx`);
+  };
+
   const openAdd = () => {
     setForm({ ...EMPTY, employeeName: user?.fullName || "" });
     setEditingId(null);
@@ -419,9 +449,19 @@ export default function Index() {
         <span className="text-xs text-muted-foreground">
           Показано: <b className="text-foreground">{filtered.length}</b> из {candidates.length}
         </span>
-        <button onClick={loadCandidates} className="ml-auto p-1.5 rounded hover:bg-muted text-muted-foreground transition-colors" title="Обновить">
-          <Icon name={loading ? "Loader2" : "RefreshCw"} size={14} className={loading ? "animate-spin" : ""} />
-        </button>
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-border text-muted-foreground hover:border-green-500 hover:text-green-700 transition-colors whitespace-nowrap"
+            title="Выгрузить в Excel"
+          >
+            <Icon name="FileDown" size={13} />
+            <span>Excel</span>
+          </button>
+          <button onClick={loadCandidates} className="p-1.5 rounded hover:bg-muted text-muted-foreground transition-colors" title="Обновить">
+            <Icon name={loading ? "Loader2" : "RefreshCw"} size={14} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
       </div>
 
       {/* Table */}
