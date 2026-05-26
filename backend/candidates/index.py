@@ -224,6 +224,98 @@ def action_convert_lead(body, cur, conn):
     return {"statusCode": 200, "headers": CORS, "body": json.dumps(row, ensure_ascii=False)}
 
 
+def action_mango(event: dict) -> dict:
+    """Webhook от Манго Офис ВАТС — создаёт лида при входящем звонке с нового номера."""
+    import hashlib
+    import urllib.parse
+    from datetime import date
+
+    raw_body = event.get("body", "") or ""
+    if event.get("isBase64Encoded"):
+        import base64 as _b64
+        raw_body = _b64.b64decode(raw_body).decode("utf-8")
+
+    try:
+        params = dict(urllib.parse.parse_qsl(raw_body))
+    except Exception:
+        return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "Bad request"})}
+
+    vpbx_api_key = params.get("vpbx_api_key", "")
+    sign = params.get("sign", "")
+    json_str = params.get("json", "")
+
+    mango_salt = os.environ.get("MANGO_API_SALT", "")
+    if mango_salt:
+        expected = hashlib.sha256((vpbx_api_key + json_str + mango_salt).encode()).hexdigest()
+        if expected != sign:
+            return {"statusCode": 401, "headers": CORS, "body": json.dumps({"error": "Invalid sign"})}
+
+    mango_key = os.environ.get("MANGO_API_KEY", "")
+    if mango_key and vpbx_api_key != mango_key:
+        return {"statusCode": 401, "headers": CORS, "body": json.dumps({"error": "Invalid api key"})}
+
+    try:
+        data = json.loads(json_str) if json_str else {}
+    except Exception:
+        return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "Invalid JSON"})}
+
+    seq = str(data.get("seq", ""))
+    call_state = data.get("call_state", "")
+    if seq != "1" and call_state not in ("Appeared", ""):
+        return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "skipped": True})}
+
+    from_info = data.get("from") or {}
+    if isinstance(from_info, str):
+        phone = from_info
+    else:
+        phone = from_info.get("number", "") or from_info.get("extension", "")
+
+    phone = (phone or "").strip()
+    if not phone:
+        return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "skipped": "no_phone"})}
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(f"SELECT 1 FROM {SCHEMA}.candidates WHERE phone = %s LIMIT 1", (phone,))
+        if cur.fetchone():
+            cur.close()
+            return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "skipped": "exists"})}
+
+        cur.execute(
+            f"""INSERT INTO {SCHEMA}.candidates
+                (full_name, phone, city, citizenship, notes,
+                 age, criminal_record, chronic_diseases, dispensary_record,
+                 doc_photos, relation_photos, tickets, contract_photos,
+                 employee_name, company, relations, birth_date, arrival_date,
+                 has_inn, has_snils, created_at, is_lead)
+                VALUES ('', %s, '', '', %s,
+                        '', '', '', '',
+                        '[]', '[]', '[]', '[]',
+                        '', '', '', '', '',
+                        false, false, %s, true)
+                RETURNING id""",
+            (phone, "Источник: Манго Офис (звонок)", date.today()),
+        )
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+    finally:
+        conn.close()
+
+    try:
+        send_telegram(
+            f"📞 <b>Новый звонок — лид создан</b>\n\n"
+            f"<b>Телефон:</b> {phone}\n"
+            f"<b>Источник:</b> Манго Офис\n"
+            f"<b>ID лида:</b> {new_id}"
+        )
+    except Exception:
+        pass
+
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "id": new_id})}
+
+
 def action_webhook(event: dict) -> dict:
     """Приём лида с внешнего сайта через webhook (без авторизации, опциональный секрет)."""
     from datetime import date
@@ -299,10 +391,12 @@ def handler(event: dict, context) -> dict:
     if method == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
-    # Webhook — публичный эндпоинт, query-параметр ?action=webhook
+    # Публичные webhook-эндпоинты через query-параметр ?action=
     query = event.get("queryStringParameters") or {}
     if query.get("action") == "webhook":
         return action_webhook(event)
+    if query.get("action") == "mango":
+        return action_mango(event)
 
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
     session_id = headers.get("x-session-id", "")
