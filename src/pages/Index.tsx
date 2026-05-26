@@ -42,6 +42,7 @@ interface Candidate {
   employeeName: string;
   company: string;
   createdAt: string;
+  called: boolean;
 }
 
 interface ApiCandidate {
@@ -67,6 +68,7 @@ interface ApiCandidate {
   employee_name: string;
   company: string;
   created_at: string;
+  called: boolean;
 }
 
 function fromApi(r: ApiCandidate): Candidate {
@@ -93,6 +95,7 @@ function fromApi(r: ApiCandidate): Candidate {
     employeeName: r.employee_name,
     company: r.company || "",
     createdAt: r.created_at,
+    called: r.called || false,
   };
 }
 
@@ -235,6 +238,7 @@ export default function Index() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [showUncalled, setShowUncalled] = useState(false);
   const [leadsCount, setLeadsCount] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -287,11 +291,21 @@ export default function Index() {
       .catch(() => {});
   }, [token]);
 
-  const filtered = candidates.filter((c) =>
-    [c.fullName, c.employeeName, c.age].some((v) =>
+  const filtered = candidates.filter((c) => {
+    if (showUncalled && c.called) return false;
+    return [c.fullName, c.employeeName, c.age].some((v) =>
       v.toLowerCase().includes(search.toLowerCase())
-    )
-  );
+    );
+  });
+
+  const handleToggleCalled = async (id: number, called: boolean) => {
+    setCandidates((prev) => prev.map((c) => c.id === id ? { ...c, called } : c));
+    await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+      body: JSON.stringify({ action: "toggle_called", id, called }),
+    });
+  };
 
   const openAdd = () => {
     setForm({ ...EMPTY, employeeName: user?.fullName || "" });
@@ -394,6 +408,14 @@ export default function Index() {
           <Input placeholder="Поиск по ФИО, сотруднику..." value={search}
             onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-sm" />
         </div>
+        <button
+          onClick={() => setShowUncalled((v) => !v)}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border transition-colors whitespace-nowrap ${showUncalled ? "bg-orange-500 border-orange-500 text-white" : "border-border text-muted-foreground hover:border-orange-400 hover:text-orange-600"}`}
+          title="Только непрозвоненные"
+        >
+          <Icon name="PhoneMissed" size={13} />
+          <span>Непрозвоненные</span>
+        </button>
         <span className="text-xs text-muted-foreground">
           Показано: <b className="text-foreground">{filtered.length}</b> из {candidates.length}
         </span>
@@ -415,7 +437,7 @@ export default function Index() {
               <tr style={{ background: "hsl(217, 60%, 22%)" }}>
                 {["№", "ФИО", "Телефон", "Лет", "Судимость", "Хр. болезни", "ПНД/НД",
                   "Заметки", "Доки", "Отнош.", "Билеты", "Контракт",
-                  "Сотрудник", "Компания", "Дата", ""].map((h, i) => (
+                  "Сотрудник", "Компания", "Дата", "Прозвонен", ""].map((h, i) => (
                   <th key={i} className="text-left px-2 py-2 font-medium text-xs tracking-wide text-white/80 border-b border-white/10 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -423,7 +445,7 @@ export default function Index() {
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={16} className="text-center py-20 text-muted-foreground">
+                  <td colSpan={17} className="text-center py-20 text-muted-foreground">
                     <Icon name="Inbox" size={36} className="mx-auto mb-3 opacity-25" />
                     <div className="text-sm">Нет записей. Добавьте первого кандидата.</div>
                   </td>
@@ -448,6 +470,15 @@ export default function Index() {
                   <td className="px-2 py-2 whitespace-nowrap max-w-[120px] truncate">{c.employeeName || "—"}</td>
                   <td className="px-2 py-2 whitespace-nowrap max-w-[120px] truncate">{c.company || "—"}</td>
                   <td className="px-2 py-2 font-mono text-muted-foreground whitespace-nowrap">{c.createdAt}</td>
+                  <td className="px-2 py-2 text-center">
+                    <button
+                      onClick={() => handleToggleCalled(c.id, !c.called)}
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${c.called ? "bg-green-500 border-green-500 text-white" : "border-gray-300 hover:border-green-400"}`}
+                      title={c.called ? "Прозвонен" : "Отметить как прозвоненный"}
+                    >
+                      {c.called && <Icon name="Check" size={11} />}
+                    </button>
+                  </td>
                   <td className="px-2 py-2 sticky right-0 bg-white group-hover:bg-blue-50/50">
                     <div className="flex items-center gap-0.5">
                       <button onClick={() => setDetailId(c.id)} className="p-1 rounded hover:bg-blue-100 text-blue-600 transition-colors" title="Подробнее">
