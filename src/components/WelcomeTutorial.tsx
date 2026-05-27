@@ -96,6 +96,7 @@ export default function WelcomeTutorial() {
               <div className="bg-[hsl(210,20%,97%)] rounded-lg px-4 py-3">
                 <div className="text-xs font-semibold text-[hsl(217,60%,18%)] mb-1">🌐 Android — Яндекс Браузер</div>
                 <div className="text-xs text-muted-foreground">⋮ (три точки) → «Добавить на рабочий стол» → Добавить</div>
+                <div className="text-xs text-amber-600 mt-1">⚠️ Счётчик непрочитанных на иконке не поддерживается — только в Chrome и Safari</div>
               </div>
             </div>
           )}
