@@ -21,6 +21,19 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+async function fetchWithRetry(url: string, options: RequestInit, retries = 3, delayMs = 2000): Promise<Response> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, options);
+      return res;
+    } catch (e) {
+      if (i === retries - 1) throw e;
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw new Error("Failed after retries");
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -29,13 +42,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const saved = localStorage.getItem(SESSION_KEY);
     if (!saved) { setLoading(false); return; }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
-    fetch(AUTH_URL, {
+    fetchWithRetry(AUTH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Session-Id": saved },
       body: JSON.stringify({ action: "me" }),
-      signal: controller.signal,
     })
       .then((r) => r.json())
       .then((data) => {
@@ -44,18 +54,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         else localStorage.removeItem(SESSION_KEY);
       })
       .catch(() => localStorage.removeItem(SESSION_KEY))
-      .finally(() => { clearTimeout(timeout); setLoading(false); });
+      .finally(() => { setLoading(false); });
   }, []);
 
   const login = async (loginVal: string, password: string): Promise<string | null> => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
     try {
-      const res = await fetch(AUTH_URL, {
+      const res = await fetchWithRetry(AUTH_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "login", login: loginVal, password }),
-        signal: controller.signal,
       });
       let data = await res.json();
       if (typeof data === "string") data = JSON.parse(data);
@@ -65,10 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data.user);
       return null;
     } catch (e) {
-      if ((e as Error).name === "AbortError") return "Сервер не отвечает. Проверьте соединение.";
-      return "Ошибка соединения с сервером.";
-    } finally {
-      clearTimeout(timeout);
+      return "Сервер не отвечает. Попробуйте ещё раз.";
     }
   };
 
