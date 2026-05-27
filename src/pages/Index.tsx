@@ -319,9 +319,7 @@ export default function Index() {
         .then((r) => r.json())
         .then((data) => {
           const items: { id: number }[] = data.items || [];
-          if (!items.length) { setUnreadCount(0); return; }
-          const lastId = Math.max(...items.map((i) => i.id));
-          const seen = parseInt(localStorage.getItem("chat_last_seen") || "0", 10);
+          const seen = parseInt(localStorage.getItem(`chat_last_seen_${user?.id ?? "anon"}`) || "0", 10);
           setUnreadCount(items.filter((i) => i.id > seen).length);
         })
         .catch(() => {});

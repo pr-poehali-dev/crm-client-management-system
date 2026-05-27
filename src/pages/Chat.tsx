@@ -19,6 +19,10 @@ function formatDate(iso: string) {
   return d.toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+function seenKey(userId?: number) {
+  return `chat_last_seen_${userId ?? "anon"}`;
+}
+
 export default function Chat() {
   const { user, token } = useAuth();
   const navigate = useNavigate();
@@ -51,7 +55,7 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     if (items.length > 0) {
       const maxId = Math.max(...items.map((i) => i.id));
-      localStorage.setItem("chat_last_seen", String(maxId));
+      localStorage.setItem(seenKey(user?.id), String(maxId));
     }
   }, [items]);
 

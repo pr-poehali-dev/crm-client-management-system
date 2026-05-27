@@ -61,7 +61,7 @@ export default function Users() {
         .then((r) => r.json())
         .then((data) => {
           const items: { id: number }[] = data.items || [];
-          const seen = parseInt(localStorage.getItem("chat_last_seen") || "0", 10);
+          const seen = parseInt(localStorage.getItem(`chat_last_seen_${me?.id ?? "anon"}`) || "0", 10);
           setUnreadCount(items.filter((i) => i.id > seen).length);
         })
         .catch(() => {});
