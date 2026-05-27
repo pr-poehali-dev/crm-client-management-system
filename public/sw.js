@@ -17,6 +17,19 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SET_BADGE') {
+    const count = event.data.count;
+    if ('setAppBadge' in self.navigator) {
+      if (count > 0) {
+        self.navigator.setAppBadge(count);
+      } else {
+        self.navigator.clearAppBadge();
+      }
+    }
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);

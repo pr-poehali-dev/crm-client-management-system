@@ -7,6 +7,7 @@ import Icon from "@/components/ui/icon";
 import { useAuth } from "@/contexts/AuthContext";
 import func2url from "../../backend/func2url.json";
 import * as XLSX from "xlsx";
+import { useBadge } from "@/hooks/useBadge";
 
 const API = (func2url as Record<string, string>)["candidates"];
 
@@ -66,6 +67,7 @@ export default function Leads() {
   const [detailId, setDetailId] = useState<number | null>(null);
   const [convertingId, setConvertingId] = useState<number | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  useBadge(unreadCount);
 
   const loadLeads = useCallback(async () => {
     setLoading(true);

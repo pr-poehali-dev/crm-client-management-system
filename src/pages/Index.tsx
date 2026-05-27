@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import func2url from "../../backend/func2url.json";
 import * as XLSX from "xlsx";
 import WelcomeTutorial from "@/components/WelcomeTutorial";
+import { useBadge } from "@/hooks/useBadge";
 
 const API = (func2url as Record<string, string>)["candidates"];
 const AUTH_URL = (func2url as Record<string, string>)["auth"];
@@ -261,6 +262,7 @@ export default function Index() {
   const [showUncalled, setShowUncalled] = useState(false);
   const [leadsCount, setLeadsCount] = useState<number | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  useBadge(unreadCount);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Omit<Candidate, "id" | "createdAt">>(EMPTY);

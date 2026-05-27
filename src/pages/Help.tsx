@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useAuth } from "@/contexts/AuthContext";
 import func2url from "../../backend/func2url.json";
+import { useBadge } from "@/hooks/useBadge";
 
 const API = (func2url as Record<string, string>)["candidates"];
 
@@ -80,6 +81,7 @@ export default function Help() {
   const navigate = useNavigate();
   const { token } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  useBadge(unreadCount);
 
   useEffect(() => {
     if (!token) return;
