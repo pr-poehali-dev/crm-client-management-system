@@ -30,7 +30,7 @@ export default function Login() {
           <div className="text-sm text-muted-foreground mt-1">Войдите в систему</div>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white border border-border rounded-xl shadow-sm p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-white border border-border rounded-xl shadow-sm p-6 space-y-4 mb-4">
           <div className="space-y-1">
             <Label className="text-xs font-medium">Логин</Label>
             <Input
@@ -69,6 +69,41 @@ export default function Login() {
             {loading ? <><Icon name="Loader2" size={14} className="animate-spin" /> Вход...</> : "Войти"}
           </Button>
         </form>
+        <div className="bg-white border border-border rounded-xl shadow-sm p-5 space-y-4">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Установить приложение</div>
+
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <span className="text-base">🍎</span>
+              <div>
+                <div className="text-xs font-medium text-foreground mb-1">iPhone (Safari)</div>
+                <ol className="text-xs text-muted-foreground space-y-0.5 list-none">
+                  <li>1. Откройте сайт в браузере <span className="font-medium">Safari</span></li>
+                  <li>2. Нажмите кнопку <span className="font-medium">«Поделиться»</span> <span className="text-[10px]">(квадрат со стрелкой вверх)</span></li>
+                  <li>3. Выберите <span className="font-medium">«На экран «Домой»»</span></li>
+                  <li>4. Нажмите <span className="font-medium">«Добавить»</span></li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-border" />
+
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <span className="text-base">🤖</span>
+              <div>
+                <div className="text-xs font-medium text-foreground mb-1">Android (Chrome)</div>
+                <ol className="text-xs text-muted-foreground space-y-0.5 list-none">
+                  <li>1. Откройте сайт в браузере <span className="font-medium">Chrome</span></li>
+                  <li>2. Нажмите <span className="font-medium">«⋮»</span> (три точки) в правом верхнем углу</li>
+                  <li>3. Выберите <span className="font-medium">«Добавить на главный экран»</span></li>
+                  <li>4. Нажмите <span className="font-medium">«Добавить»</span></li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
