@@ -29,10 +29,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const saved = localStorage.getItem(SESSION_KEY);
     if (!saved) { setLoading(false); return; }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     fetch(AUTH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Session-Id": saved },
       body: JSON.stringify({ action: "me" }),
+      signal: controller.signal,
     })
       .then((r) => r.json())
       .then((data) => {
@@ -41,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         else localStorage.removeItem(SESSION_KEY);
       })
       .catch(() => localStorage.removeItem(SESSION_KEY))
-      .finally(() => setLoading(false));
+      .finally(() => { clearTimeout(timeout); setLoading(false); });
   }, []);
 
   const login = async (loginVal: string, password: string): Promise<string | null> => {
