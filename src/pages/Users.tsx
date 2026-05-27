@@ -42,14 +42,21 @@ export default function Users() {
 
   const load = async () => {
     setLoading(true);
-    const res = await fetch(AUTH_URL, {
-      method: "POST",
-      headers: authHeaders,
-      body: JSON.stringify({ action: "list_users" }),
-    });
-    const data = apiParse(await res.text());
-    setUsers(data.users || []);
-    setLoading(false);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      const res = await fetch(AUTH_URL, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ action: "list_users" }),
+        signal: controller.signal,
+      });
+      const data = apiParse(await res.text());
+      setUsers(data.users || []);
+    } catch (_e) { /* abort or network error */ } finally {
+      clearTimeout(timeout);
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);

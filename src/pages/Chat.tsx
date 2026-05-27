@@ -37,12 +37,19 @@ export default function Chat() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchAnnouncements = useCallback(async () => {
-    const res = await fetch(`${API}?mode=announcements`, {
-      headers: { "X-Session-Id": token || "" },
-    });
-    const data = await res.json();
-    setItems(data.items || []);
-    setLoading(false);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      const res = await fetch(`${API}?mode=announcements`, {
+        headers: { "X-Session-Id": token || "" },
+        signal: controller.signal,
+      });
+      const data = await res.json();
+      setItems(data.items || []);
+    } catch (_e) { /* abort or network error */ } finally {
+      clearTimeout(timeout);
+      setLoading(false);
+    }
   }, [token]);
 
   useEffect(() => {

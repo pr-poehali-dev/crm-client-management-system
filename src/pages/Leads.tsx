@@ -71,9 +71,12 @@ export default function Leads() {
 
   const loadLeads = useCallback(async () => {
     setLoading(true);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
       const res = await fetch(`${API}?mode=leads`, {
         headers: token ? { "X-Session-Id": token } : {},
+        signal: controller.signal,
       });
       const raw = await res.text();
       const data: ApiLead[] = JSON.parse(raw);
@@ -81,6 +84,7 @@ export default function Leads() {
     } catch (e) {
       console.error("Load leads error", e);
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   }, [token]);
