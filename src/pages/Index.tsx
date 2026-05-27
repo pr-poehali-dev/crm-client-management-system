@@ -260,6 +260,7 @@ export default function Index() {
   const [search, setSearch] = useState("");
   const [showUncalled, setShowUncalled] = useState(false);
   const [leadsCount, setLeadsCount] = useState<number | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Omit<Candidate, "id" | "createdAt">>(EMPTY);
@@ -309,6 +310,25 @@ export default function Index() {
       .then((r) => r.text())
       .then((raw) => { const data = JSON.parse(raw); setLeadsCount(Array.isArray(data) ? data.length : 0); })
       .catch(() => {});
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    const checkUnread = () => {
+      fetch(`${API}?mode=announcements`, { headers: { "X-Session-Id": token } })
+        .then((r) => r.json())
+        .then((data) => {
+          const items: { id: number }[] = data.items || [];
+          if (!items.length) { setUnreadCount(0); return; }
+          const lastId = Math.max(...items.map((i) => i.id));
+          const seen = parseInt(localStorage.getItem("chat_last_seen") || "0", 10);
+          setUnreadCount(items.filter((i) => i.id > seen).length);
+        })
+        .catch(() => {});
+    };
+    checkUnread();
+    const iv = setInterval(checkUnread, 15000);
+    return () => clearInterval(iv);
   }, [token]);
 
   const filtered = candidates.filter((c) => {
@@ -441,6 +461,19 @@ export default function Index() {
           <button onClick={() => { setPwdError(null); setPwdForm({ oldPassword: "", newPassword: "" }); setPwdModal(true); }} className="flex items-center gap-1 text-white/60 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Сменить пароль">
             <Icon name="User" size={14} />
             <span className="hidden md:inline">{user?.fullName || user?.login}</span>
+          </button>
+          <button
+            onClick={() => navigate("/chat")}
+            className="relative flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors"
+            title="Объявления"
+          >
+            <Icon name="MessageSquare" size={14} />
+            <span className="hidden md:inline">Объявления</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-4 text-center">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </button>
           <button onClick={() => navigate("/help")} className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Инструкция">
             <Icon name="BookOpen" size={14} />

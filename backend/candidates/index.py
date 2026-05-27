@@ -398,8 +398,57 @@ def action_webhook(event: dict) -> dict:
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "id": new_id})}
 
 
+def action_announcements_get(event, conn):
+    query = event.get("queryStringParameters") or {}
+    last_id = query.get("last_id")
+    cur = conn.cursor()
+    if last_id:
+        cur.execute(
+            f"SELECT id, author_id, author_name, message, created_at FROM {SCHEMA}.announcements WHERE id > %s ORDER BY id ASC",
+            (int(last_id),),
+        )
+    else:
+        cur.execute(
+            f"SELECT id, author_id, author_name, message, created_at FROM {SCHEMA}.announcements ORDER BY id ASC"
+        )
+    rows = cur.fetchall()
+    cur.close()
+    items = [{"id": r[0], "author_id": r[1], "author_name": r[2], "message": r[3], "created_at": r[4].isoformat()} for r in rows]
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"items": items})}
+
+
+def action_announcements_post(body, user, conn):
+    if user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Forbidden"})}
+    message = (body.get("message") or "").strip()
+    if not message:
+        return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "message required"})}
+    cur = conn.cursor()
+    cur.execute(
+        f"INSERT INTO {SCHEMA}.announcements (author_id, author_name, message) VALUES (%s,%s,%s) RETURNING id, created_at",
+        (user["id"], user["fullName"], message),
+    )
+    row = cur.fetchone()
+    conn.commit()
+    cur.close()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"id": row[0], "author_id": user["id"], "author_name": user["fullName"], "message": message, "created_at": row[1].isoformat()})}
+
+
+def action_announcements_delete(query, user, conn):
+    if user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Forbidden"})}
+    ann_id = query.get("ann_id")
+    if not ann_id:
+        return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "ann_id required"})}
+    cur = conn.cursor()
+    cur.execute(f"DELETE FROM {SCHEMA}.announcements WHERE id=%s", (int(ann_id),))
+    conn.commit()
+    cur.close()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
+
+
 def handler(event: dict, context) -> dict:
-    """CRUD для кандидатов + загрузка файлов + webhook для приёма лидов с внешних сайтов."""
+    """CRUD для кандидатов + загрузка файлов + webhook + доска объявлений."""
     method = event.get("httpMethod", "GET")
 
     if method == "OPTIONS":
@@ -414,6 +463,18 @@ def handler(event: dict, context) -> dict:
 
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
     session_id = headers.get("x-session-id", "")
+
+    # GET — объявления
+    query_params = event.get("queryStringParameters") or {}
+    if query_params.get("mode") == "announcements":
+        conn = get_conn()
+        try:
+            session_user = get_session_user(conn, session_id)
+            if not session_user:
+                return {"statusCode": 401, "headers": CORS, "body": json.dumps({"error": "Unauthorized"})}
+            return action_announcements_get(event, conn)
+        finally:
+            conn.close()
 
     # GET — список кандидатов или лидов
     if method == "GET":
@@ -448,6 +509,19 @@ def handler(event: dict, context) -> dict:
 
         if action == "upload":
             return action_upload(body)
+
+        if action in ("announcements_post", "announcements_delete"):
+            conn2 = get_conn()
+            try:
+                session_user = get_session_user(conn2, session_id)
+                if not session_user:
+                    return {"statusCode": 401, "headers": CORS, "body": json.dumps({"error": "Unauthorized"})}
+                if action == "announcements_post":
+                    return action_announcements_post(body, session_user, conn2)
+                if action == "announcements_delete":
+                    return action_announcements_delete(body, session_user, conn2)
+            finally:
+                conn2.close()
 
         conn = get_conn()
         cur = conn.cursor()

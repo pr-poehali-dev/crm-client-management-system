@@ -1,5 +1,10 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
+import { useAuth } from "@/contexts/AuthContext";
+import func2url from "../../backend/func2url.json";
+
+const API = (func2url as Record<string, string>)["candidates"];
 
 interface Section {
   icon: string;
@@ -64,6 +69,25 @@ const sections: Section[] = [
 
 export default function Help() {
   const navigate = useNavigate();
+  const { token } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!token) return;
+    const checkUnread = () => {
+      fetch(`${API}?mode=announcements`, { headers: { "X-Session-Id": token } })
+        .then((r) => r.json())
+        .then((data) => {
+          const items: { id: number }[] = data.items || [];
+          const seen = parseInt(localStorage.getItem("chat_last_seen") || "0", 10);
+          setUnreadCount(items.filter((i) => i.id > seen).length);
+        })
+        .catch(() => {});
+    };
+    checkUnread();
+    const iv = setInterval(checkUnread, 15000);
+    return () => clearInterval(iv);
+  }, [token]);
 
   return (
     <div className="min-h-screen bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
@@ -75,13 +99,28 @@ export default function Help() {
             <div className="text-white/50 text-xs font-light">CRM — Учёт кандидатов</div>
           </div>
         </div>
-        <button
-          onClick={() => navigate("/")}
-          className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm px-3 py-1.5 rounded hover:bg-white/10 transition-colors"
-        >
-          <Icon name="ArrowLeft" size={15} />
-          Назад
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate("/chat")}
+            className="relative flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors"
+            title="Объявления"
+          >
+            <Icon name="MessageSquare" size={14} />
+            <span className="hidden md:inline">Объявления</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-4 text-center">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm px-3 py-1.5 rounded hover:bg-white/10 transition-colors"
+          >
+            <Icon name="ArrowLeft" size={15} />
+            Назад
+          </button>
+        </div>
       </header>
 
       <div className="max-w-3xl mx-auto px-6 py-10 space-y-8">

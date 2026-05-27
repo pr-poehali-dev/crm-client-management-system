@@ -65,6 +65,7 @@ export default function Leads() {
   const [showUncalled, setShowUncalled] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [convertingId, setConvertingId] = useState<number | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const loadLeads = useCallback(async () => {
     setLoading(true);
@@ -83,6 +84,23 @@ export default function Leads() {
   }, [token]);
 
   useEffect(() => { loadLeads(); }, [loadLeads]);
+
+  useEffect(() => {
+    if (!token) return;
+    const checkUnread = () => {
+      fetch(`${API}?mode=announcements`, { headers: { "X-Session-Id": token } })
+        .then((r) => r.json())
+        .then((data) => {
+          const items: { id: number }[] = data.items || [];
+          const seen = parseInt(localStorage.getItem("chat_last_seen") || "0", 10);
+          setUnreadCount(items.filter((i) => i.id > seen).length);
+        })
+        .catch(() => {});
+    };
+    checkUnread();
+    const iv = setInterval(checkUnread, 15000);
+    return () => clearInterval(iv);
+  }, [token]);
 
   const filtered = leads.filter((l) => {
     if (showUncalled && l.called) return false;
@@ -172,6 +190,19 @@ export default function Leads() {
               <span className="hidden md:inline">Пользователи</span>
             </button>
           )}
+          <button
+            onClick={() => navigate("/chat")}
+            className="relative flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors"
+            title="Объявления"
+          >
+            <Icon name="MessageSquare" size={14} />
+            <span className="hidden md:inline">Объявления</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-4 text-center">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </button>
           <button onClick={() => navigate("/help")} className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Инструкция">
             <Icon name="BookOpen" size={14} />
             <span className="hidden md:inline">Инструкция</span>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,7 @@ import Icon from "@/components/ui/icon";
 import func2url from "../../backend/func2url.json";
 
 const AUTH_URL = (func2url as Record<string, string>)["auth"];
+const API = (func2url as Record<string, string>)["candidates"];
 
 interface User {
   id: number;
@@ -25,8 +27,10 @@ function apiParse(raw: string) {
 
 export default function Users() {
   const { token, user: me } = useAuth();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [passwordModal, setPasswordModal] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -49,6 +53,23 @@ export default function Users() {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    if (!token) return;
+    const checkUnread = () => {
+      fetch(`${API}?mode=announcements`, { headers: { "X-Session-Id": token } })
+        .then((r) => r.json())
+        .then((data) => {
+          const items: { id: number }[] = data.items || [];
+          const seen = parseInt(localStorage.getItem("chat_last_seen") || "0", 10);
+          setUnreadCount(items.filter((i) => i.id > seen).length);
+        })
+        .catch(() => {});
+    };
+    checkUnread();
+    const iv = setInterval(checkUnread, 15000);
+    return () => clearInterval(iv);
+  }, [token]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,12 +118,27 @@ export default function Users() {
 
   return (
     <div className="min-h-screen bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
-      <header className="text-white px-6 py-4 flex items-center gap-3 shadow-lg" style={{ background: "hsl(217, 60%, 18%)" }}>
-        <a href="/" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-xs">
-          <Icon name="ArrowLeft" size={14} />Назад
-        </a>
-        <div className="w-px h-5 bg-white/20" />
-        <div className="font-semibold text-sm">Пользователи системы</div>
+      <header className="text-white px-6 py-4 flex items-center justify-between shadow-lg" style={{ background: "hsl(217, 60%, 18%)" }}>
+        <div className="flex items-center gap-3">
+          <a href="/" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-xs">
+            <Icon name="ArrowLeft" size={14} />Назад
+          </a>
+          <div className="w-px h-5 bg-white/20" />
+          <div className="font-semibold text-sm">Пользователи системы</div>
+        </div>
+        <button
+          onClick={() => navigate("/chat")}
+          className="relative flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors"
+          title="Объявления"
+        >
+          <Icon name="MessageSquare" size={14} />
+          <span className="hidden md:inline">Объявления</span>
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-4 text-center">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
+        </button>
       </header>
 
       <div className="p-6 max-w-2xl mx-auto">

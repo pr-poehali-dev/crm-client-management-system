@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Users from "./pages/Users";
 import Leads from "./pages/Leads";
 import Help from "./pages/Help";
+import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
 import Icon from "@/components/ui/icon";
 
@@ -36,6 +37,7 @@ function AppRoutes() {
       <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute adminOnly><Users /></ProtectedRoute>} />
       <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
+      <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
