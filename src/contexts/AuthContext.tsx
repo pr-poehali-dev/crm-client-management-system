@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const saved = localStorage.getItem(SESSION_KEY);
     if (!saved) { setLoading(false); return; }
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 20000);
     fetch(AUTH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Session-Id": saved },
@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (loginVal: string, password: string): Promise<string | null> => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), 20000);
     try {
       const res = await fetch(AUTH_URL, {
         method: "POST",
