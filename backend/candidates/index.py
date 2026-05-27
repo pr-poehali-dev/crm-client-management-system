@@ -3,8 +3,6 @@ import json
 import mimetypes
 import os
 import uuid
-
-
 import boto3
 import psycopg2
 import urllib.request
