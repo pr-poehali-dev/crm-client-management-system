@@ -1,4 +1,4 @@
-const CACHE_NAME = 'crm-v1';
+const CACHE_NAME = 'crm-v3';
 const STATIC_ASSETS = ['/', '/login'];
 
 self.addEventListener('install', (event) => {
