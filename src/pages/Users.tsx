@@ -30,6 +30,7 @@ export default function Users() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [passwordModal, setPasswordModal] = useState<User | null>(null);
@@ -42,6 +43,7 @@ export default function Users() {
 
   const load = async () => {
     setLoading(true);
+    setLoadError(false);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     try {
@@ -53,7 +55,7 @@ export default function Users() {
       });
       const data = apiParse(await res.text());
       setUsers(data.users || []);
-    } catch (_e) { /* abort or network error */ } finally {
+    } catch (_e) { setLoadError(true); } finally {
       clearTimeout(timeout);
       setLoading(false);
     }
@@ -160,6 +162,12 @@ export default function Users() {
           <div className="flex items-center justify-center py-16 text-muted-foreground">
             <Icon name="Loader2" size={22} className="animate-spin mr-2" />
             <span className="text-sm">Загрузка...</span>
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+            <Icon name="WifiOff" size={32} className="text-red-400" />
+            <span className="text-sm">Сервер недоступен. Проверьте соединение.</span>
+            <button onClick={load} className="text-xs underline hover:text-foreground transition-colors">Повторить</button>
           </div>
         ) : (
           <div className="space-y-2">

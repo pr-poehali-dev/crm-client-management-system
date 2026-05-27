@@ -62,6 +62,7 @@ export default function Leads() {
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState("");
   const [showUncalled, setShowUncalled] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
@@ -71,6 +72,7 @@ export default function Leads() {
 
   const loadLeads = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     try {
@@ -83,6 +85,7 @@ export default function Leads() {
       setLeads(data.map(fromApi));
     } catch (e) {
       console.error("Load leads error", e);
+      setLoadError(true);
     } finally {
       clearTimeout(timeout);
       setLoading(false);
@@ -259,6 +262,12 @@ export default function Leads() {
           <div className="flex items-center justify-center py-24 text-muted-foreground">
             <Icon name="Loader2" size={28} className="animate-spin mr-3" />
             <span className="text-sm">Загрузка лидов...</span>
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center py-24 gap-3 text-muted-foreground">
+            <Icon name="WifiOff" size={32} className="text-red-400" />
+            <span className="text-sm">Сервер недоступен. Проверьте соединение.</span>
+            <button onClick={loadLeads} className="text-xs underline hover:text-foreground transition-colors">Повторить</button>
           </div>
         ) : (
           <table className="w-full text-xs border-collapse" style={{ minWidth: "700px" }}>

@@ -30,6 +30,7 @@ export default function Chat() {
 
   const [items, setItems] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -46,7 +47,8 @@ export default function Chat() {
       });
       const data = await res.json();
       setItems(data.items || []);
-    } catch (_e) { /* abort or network error */ } finally {
+      setLoadError(false);
+    } catch (_e) { setLoadError(true); } finally {
       clearTimeout(timeout);
       setLoading(false);
     }
@@ -141,6 +143,12 @@ export default function Chat() {
           <div className="flex items-center justify-center h-32 text-gray-400">
             <Icon name="Loader2" size={20} className="animate-spin mr-2" />
             <span className="text-sm">Загрузка...</span>
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center h-48 gap-3 text-gray-400">
+            <Icon name="WifiOff" size={32} className="text-red-400" />
+            <span className="text-sm">Сервер недоступен. Проверьте соединение.</span>
+            <button onClick={fetchAnnouncements} className="text-xs underline hover:text-gray-600 transition-colors">Повторить</button>
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-gray-400 gap-2">
