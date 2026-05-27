@@ -1,0 +1,25 @@
+{
+  "name": "CRM — Учёт кандидатов",
+  "short_name": "CRM",
+  "description": "CRM-система для управления кандидатами и сотрудниками",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a2e4a",
+  "theme_color": "#1a2e4a",
+  "orientation": "portrait-primary",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "https://cdn.poehali.dev/projects/9349667d-fe54-44ac-a18d-809d42c7c67e/files/ba8ed286-2fa3-48f9-9a22-0eacab2cada0.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn.poehali.dev/projects/9349667d-fe54-44ac-a18d-809d42c7c67e/files/ba8ed286-2fa3-48f9-9a22-0eacab2cada0.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
