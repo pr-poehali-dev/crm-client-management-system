@@ -57,8 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ action: "login", login: loginVal, password }),
         signal: controller.signal,
       });
-      const raw = await res.text();
-      const data = typeof JSON.parse(raw) === "string" ? JSON.parse(JSON.parse(raw)) : JSON.parse(raw);
+      let data = await res.json();
+      if (typeof data === "string") data = JSON.parse(data);
       if (!res.ok) return data.error || "Ошибка входа";
       localStorage.setItem(SESSION_KEY, data.token);
       setToken(data.token);
