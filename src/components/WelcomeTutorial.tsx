@@ -4,7 +4,14 @@ import Icon from "@/components/ui/icon";
 
 const STORAGE_KEY = "crm_tutorial_seen";
 
-const steps = [
+interface Step {
+  icon: string;
+  title: string;
+  desc: string;
+  install?: boolean;
+}
+
+const steps: Step[] = [
   {
     icon: "Users",
     title: "Добро пожаловать в CRM!",
@@ -24,6 +31,12 @@ const steps = [
     icon: "FileDown",
     title: "Выгрузка в Excel",
     desc: "Кнопка «Excel» в панели инструментов скачивает таблицу в файл. Выгружаются только те записи, которые видны на экране — с учётом поиска и фильтров.",
+  },
+  {
+    icon: "Smartphone",
+    title: "Установите приложение",
+    desc: "Добавьте CRM на рабочий стол телефона — и работайте как в обычном приложении без браузера.",
+    install: true,
   },
   {
     icon: "BookOpen",
@@ -70,6 +83,22 @@ export default function WelcomeTutorial() {
           </div>
           <h2 className="text-lg font-bold text-[hsl(217,60%,18%)] mb-3">{current.title}</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">{current.desc}</p>
+          {current.install && (
+            <div className="mt-4 text-left space-y-3">
+              <div className="bg-[hsl(210,20%,97%)] rounded-lg px-4 py-3">
+                <div className="text-xs font-semibold text-[hsl(217,60%,18%)] mb-1">🍎 iPhone (Safari)</div>
+                <div className="text-xs text-muted-foreground">Поделиться → «На экран «Домой»» → Добавить</div>
+              </div>
+              <div className="bg-[hsl(210,20%,97%)] rounded-lg px-4 py-3">
+                <div className="text-xs font-semibold text-[hsl(217,60%,18%)] mb-1">🤖 Android — Chrome</div>
+                <div className="text-xs text-muted-foreground">⋮ (три точки) → «Добавить на главный экран» → Добавить</div>
+              </div>
+              <div className="bg-[hsl(210,20%,97%)] rounded-lg px-4 py-3">
+                <div className="text-xs font-semibold text-[hsl(217,60%,18%)] mb-1">🌐 Android — Яндекс Браузер</div>
+                <div className="text-xs text-muted-foreground">⋮ (три точки) → «Добавить на рабочий стол» → Добавить</div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-center gap-1.5 pb-4">
