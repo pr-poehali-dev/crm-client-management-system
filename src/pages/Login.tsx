@@ -103,6 +103,23 @@ export default function Login() {
               </div>
             </div>
           </div>
+
+          <div className="border-t border-border" />
+
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <span className="text-base">🌐</span>
+              <div>
+                <div className="text-xs font-medium text-foreground mb-1">Android (Яндекс Браузер)</div>
+                <ol className="text-xs text-muted-foreground space-y-0.5 list-none">
+                  <li>1. Откройте сайт в <span className="font-medium">Яндекс Браузере</span></li>
+                  <li>2. Нажмите <span className="font-medium">«⋮»</span> (три точки) внизу экрана</li>
+                  <li>3. Выберите <span className="font-medium">«Добавить на рабочий стол»</span></li>
+                  <li>4. Нажмите <span className="font-medium">«Добавить»</span></li>
+                </ol>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
