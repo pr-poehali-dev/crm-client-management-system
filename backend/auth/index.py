@@ -1,4 +1,4 @@
-import hashlib
+import hashlib  # noqa
 import json
 import os
 import secrets
