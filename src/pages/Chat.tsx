@@ -166,7 +166,7 @@ export default function Chat() {
                     </button>
                   )}
                 </div>
-                <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{item.message}</p>
+                <p className="text-base text-gray-900 font-medium whitespace-pre-wrap leading-relaxed">{item.message}</p>
               </div>
             ))}
             <div ref={bottomRef} />
