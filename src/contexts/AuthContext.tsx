@@ -48,18 +48,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (loginVal: string, password: string): Promise<string | null> => {
-    const res = await fetch(AUTH_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "login", login: loginVal, password }),
-    });
-    const raw = await res.text();
-    const data = typeof JSON.parse(raw) === "string" ? JSON.parse(JSON.parse(raw)) : JSON.parse(raw);
-    if (!res.ok) return data.error || "Ошибка входа";
-    localStorage.setItem(SESSION_KEY, data.token);
-    setToken(data.token);
-    setUser(data.user);
-    return null;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+      const res = await fetch(AUTH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "login", login: loginVal, password }),
+        signal: controller.signal,
+      });
+      const raw = await res.text();
+      const data = typeof JSON.parse(raw) === "string" ? JSON.parse(JSON.parse(raw)) : JSON.parse(raw);
+      if (!res.ok) return data.error || "Ошибка входа";
+      localStorage.setItem(SESSION_KEY, data.token);
+      setToken(data.token);
+      setUser(data.user);
+      return null;
+    } catch (e) {
+      if ((e as Error).name === "AbortError") return "Сервер не отвечает. Проверьте соединение.";
+      return "Ошибка соединения с сервером.";
+    } finally {
+      clearTimeout(timeout);
+    }
   };
 
   const logout = async () => {
