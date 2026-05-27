@@ -25,6 +25,10 @@ def md5(s: str) -> str:
     return hashlib.md5(s.encode()).hexdigest()
 
 
+def esc(s: str) -> str:
+    return s.replace("'", "''")
+
+
 def ok(data: dict, status=200):
     return {"statusCode": status, "headers": CORS, "body": json.dumps(data, ensure_ascii=False)}
 
@@ -40,8 +44,7 @@ def get_session_user(conn, session_id: str):
     cur.execute(
         f"SELECT u.id, u.login, u.full_name, u.role FROM {SCHEMA}.sessions s "
         f"JOIN {SCHEMA}.users u ON u.id = s.user_id "
-        f"WHERE s.token = %s AND s.expires_at > NOW() AND u.is_active = true",
-        (session_id,),
+        f"WHERE s.token = '{esc(session_id)}' AND s.expires_at > NOW() AND u.is_active = true"
     )
     row = cur.fetchone()
     cur.close()
@@ -56,10 +59,11 @@ def action_login(body, conn):
     if not login or not password:
         return err("Введите логин и пароль")
 
+    pw_hash = md5(password)
     cur = conn.cursor()
     cur.execute(
-        f"SELECT id, full_name, role, is_active FROM {SCHEMA}.users WHERE login = %s AND password_hash = %s",
-        (login, md5(password)),
+        f"SELECT id, full_name, role, is_active FROM {SCHEMA}.users "
+        f"WHERE login = '{esc(login)}' AND password_hash = '{esc(pw_hash)}'"
     )
     row = cur.fetchone()
     cur.close()
@@ -74,8 +78,8 @@ def action_login(body, conn):
 
     cur = conn.cursor()
     cur.execute(
-        f"INSERT INTO {SCHEMA}.sessions (user_id, token, expires_at) VALUES (%s, %s, to_timestamp(%s))",
-        (user_id, token, expires),
+        f"INSERT INTO {SCHEMA}.sessions (user_id, token, expires_at) "
+        f"VALUES ({user_id}, '{token}', to_timestamp({expires}))"
     )
     conn.commit()
     cur.close()
@@ -95,7 +99,7 @@ def action_logout(headers, conn):
     session_id = headers.get("x-session-id", "")
     if session_id:
         cur = conn.cursor()
-        cur.execute(f"DELETE FROM {SCHEMA}.sessions WHERE token = %s", (session_id,))
+        cur.execute(f"DELETE FROM {SCHEMA}.sessions WHERE token = '{esc(session_id)}'")
         conn.commit()
         cur.close()
     return ok({"ok": True})
@@ -106,7 +110,10 @@ def action_list_users(headers, conn):
     if not user or user["role"] != "admin":
         return err("Нет доступа", 403)
     cur = conn.cursor()
-    cur.execute(f"SELECT id, login, full_name, role, created_at, is_active FROM {SCHEMA}.users WHERE login NOT LIKE 'deleted_%' ORDER BY id")
+    cur.execute(
+        f"SELECT id, login, full_name, role, created_at, is_active FROM {SCHEMA}.users "
+        f"WHERE login NOT LIKE 'deleted_%' ORDER BY id"
+    )
     rows = [{"id": r[0], "login": r[1], "fullName": r[2], "role": r[3], "createdAt": str(r[4]), "isActive": r[5]} for r in cur.fetchall()]
     cur.close()
     return ok({"users": rows})
@@ -124,11 +131,12 @@ def action_create_user(body, headers, conn):
         role = "employee"
     if not login or not password:
         return err("Логин и пароль обязательны")
+    pw_hash = md5(password)
     cur = conn.cursor()
     try:
         cur.execute(
-            f"INSERT INTO {SCHEMA}.users (login, password_hash, full_name, role) VALUES (%s, %s, %s, %s) RETURNING id",
-            (login, md5(password), full_name, role),
+            f"INSERT INTO {SCHEMA}.users (login, password_hash, full_name, role) "
+            f"VALUES ('{esc(login)}', '{esc(pw_hash)}', '{esc(full_name)}', '{role}') RETURNING id"
         )
         new_id = cur.fetchone()[0]
         conn.commit()
@@ -148,15 +156,15 @@ def action_toggle_user(body, headers, conn):
     if target_id == user["id"]:
         return err("Нельзя заблокировать самого себя")
     cur = conn.cursor()
-    cur.execute(f"SELECT is_active FROM {SCHEMA}.users WHERE id = %s", (target_id,))
+    cur.execute(f"SELECT is_active FROM {SCHEMA}.users WHERE id = {target_id}")
     row = cur.fetchone()
     if not row:
         cur.close()
         return err("Пользователь не найден", 404)
     new_state = not row[0]
     if not new_state:
-        cur.execute(f"UPDATE {SCHEMA}.sessions SET expires_at = NOW() WHERE user_id = %s", (target_id,))
-    cur.execute(f"UPDATE {SCHEMA}.users SET is_active = %s WHERE id = %s", (new_state, target_id))
+        cur.execute(f"UPDATE {SCHEMA}.sessions SET expires_at = NOW() WHERE user_id = {target_id}")
+    cur.execute(f"UPDATE {SCHEMA}.users SET is_active = {new_state} WHERE id = {target_id}")
     conn.commit()
     cur.close()
     return ok({"ok": True, "isActive": new_state})
@@ -170,8 +178,9 @@ def action_change_password(body, headers, conn):
     new_password = (body.get("password") or "").strip()
     if not new_password:
         return err("Пароль не может быть пустым")
+    pw_hash = md5(new_password)
     cur = conn.cursor()
-    cur.execute(f"UPDATE {SCHEMA}.users SET password_hash = %s WHERE id = %s", (md5(new_password), target_id))
+    cur.execute(f"UPDATE {SCHEMA}.users SET password_hash = '{esc(pw_hash)}' WHERE id = {target_id}")
     conn.commit()
     cur.close()
     return ok({"ok": True})
@@ -185,12 +194,14 @@ def action_change_own_password(body, headers, conn):
     new_password = (body.get("newPassword") or "").strip()
     if not old_password or not new_password:
         return err("Заполните все поля")
+    old_hash = md5(old_password)
     cur = conn.cursor()
-    cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE id = %s AND password_hash = %s", (user["id"], md5(old_password)))
+    cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE id = {user['id']} AND password_hash = '{esc(old_hash)}'")
     if not cur.fetchone():
         cur.close()
         return err("Неверный текущий пароль", 403)
-    cur.execute(f"UPDATE {SCHEMA}.users SET password_hash = %s WHERE id = %s", (md5(new_password), user["id"]))
+    new_hash = md5(new_password)
+    cur.execute(f"UPDATE {SCHEMA}.users SET password_hash = '{esc(new_hash)}' WHERE id = {user['id']}")
     conn.commit()
     cur.close()
     return ok({"ok": True})
