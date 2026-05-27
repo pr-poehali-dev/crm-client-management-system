@@ -103,6 +103,10 @@ export default function Chat() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-3 py-1.5 rounded hover:bg-white/10 transition-colors" title="Назад">
+            <Icon name="ArrowLeft" size={14} />
+            <span>Назад</span>
+          </button>
           <button onClick={() => navigate("/")} className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Кандидаты">
             <Icon name="Users" size={14} />
             <span className="hidden md:inline">Кандидаты</span>
