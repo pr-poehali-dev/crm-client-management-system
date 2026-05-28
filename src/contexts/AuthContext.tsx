@@ -21,10 +21,10 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function fetchWithRetry(url: string, options: RequestInit, retries = 3, delayMs = 2000): Promise<Response> {
+async function fetchWithRetry(url: string, options: RequestInit, retries = 5, delayMs = 3000): Promise<Response> {
   for (let i = 0; i < retries; i++) {
     try {
-      const res = await fetch(url, options);
+      const res = await fetch(url, { ...options, signal: AbortSignal.timeout(15000) });
       return res;
     } catch (e) {
       if (i === retries - 1) throw e;
