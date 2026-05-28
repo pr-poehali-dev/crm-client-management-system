@@ -711,7 +711,7 @@ export default function Index() {
                 <FilesUploadCell files={form.docPhotos} onAdd={(f) => setForm({ ...form, docPhotos: f })} label="Добавить фото" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs font-medium flex items-center gap-1"><Icon name="Briefcase" size={12} /> Документы по специальности</Label>
+                <Label className="text-xs font-medium flex items-center gap-1"><Icon name="Heart" size={12} /> Фото отношений</Label>
                 <FilesUploadCell files={form.relationPhotos} onAdd={(f) => setForm({ ...form, relationPhotos: f })} label="Добавить фото/PDF" />
               </div>
               <div className="space-y-1">
