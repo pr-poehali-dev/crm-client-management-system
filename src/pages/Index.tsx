@@ -657,11 +657,11 @@ export default function Index() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              {/* 6. Отношения */}
+              {/* 6. Желаемая специальность */}
               <div className="space-y-1">
-                <Label className="text-xs font-medium">6. Отношения</Label>
+                <Label className="text-xs font-medium">6. Желаемая специальность</Label>
                 <Input value={form.relations} onChange={(e) => setForm({ ...form, relations: e.target.value })}
-                  placeholder="Семейное положение / дети" className="h-9 text-sm" />
+                  placeholder="Специальность / должность" className="h-9 text-sm" />
               </div>
               {/* 7. Заболевания */}
               <div className="space-y-1">
@@ -711,7 +711,7 @@ export default function Index() {
                 <FilesUploadCell files={form.docPhotos} onAdd={(f) => setForm({ ...form, docPhotos: f })} label="Добавить фото" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs font-medium flex items-center gap-1"><Icon name="Heart" size={12} /> Фото отношений</Label>
+                <Label className="text-xs font-medium flex items-center gap-1"><Icon name="Briefcase" size={12} /> Документы по специальности</Label>
                 <FilesUploadCell files={form.relationPhotos} onAdd={(f) => setForm({ ...form, relationPhotos: f })} label="Добавить фото/PDF" />
               </div>
               <div className="space-y-1">
@@ -753,7 +753,7 @@ export default function Index() {
                   <InfoRow label="4. Гражданство РФ" value={detail.citizenship} />
                   <InfoRow label="5. ИНН" value={detail.hasInn ? "✅ есть" : "❌ нет"} />
                   <InfoRow label="5. СНИЛС" value={detail.hasSnils ? "✅ есть" : "❌ нет"} />
-                  <InfoRow label="6. Отношения" value={detail.relations} />
+                  <InfoRow label="6. Желаемая специальность" value={detail.relations} />
                   <InfoRow label="7. Заболевания" value={<StatusBadge value={detail.chronicDiseases} />} />
                   <InfoRow label="8. Судимости" value={<StatusBadge value={detail.criminalRecord} />} />
                   <InfoRow label="9. Телефон" value={detail.phone} />
