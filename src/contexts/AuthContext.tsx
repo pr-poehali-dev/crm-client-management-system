@@ -24,9 +24,13 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 async function fetchWithRetry(url: string, options: RequestInit, retries = 5, delayMs = 3000): Promise<Response> {
   for (let i = 0; i < retries; i++) {
     try {
-      const res = await fetch(url, { ...options, signal: AbortSignal.timeout(15000) });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
       return res;
     } catch (e) {
+      console.error("Fetch error:", e, "for", url);
       if (i === retries - 1) throw e;
       await new Promise((r) => setTimeout(r, delayMs));
     }
