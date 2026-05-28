@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useUnread } from "@/hooks/useUnread";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,7 +68,7 @@ export default function Leads() {
   const [showUncalled, setShowUncalled] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [convertingId, setConvertingId] = useState<number | null>(null);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { unreadCount } = useUnread(token, user?.id);
   useBadge(unreadCount);
 
   const loadLeads = useCallback(async () => {
@@ -94,22 +95,7 @@ export default function Leads() {
 
   useEffect(() => { loadLeads(); }, [loadLeads]);
 
-  useEffect(() => {
-    if (!token) return;
-    const checkUnread = () => {
-      fetch(`${API}?mode=announcements`, { headers: { "X-Session-Id": token } })
-        .then((r) => r.json())
-        .then((data) => {
-          const items: { id: number }[] = data.items || [];
-          const seen = parseInt(localStorage.getItem(`chat_last_seen_${user?.id ?? "anon"}`) || "0", 10);
-          setUnreadCount(items.filter((i) => i.id > seen).length);
-        })
-        .catch(() => {});
-    };
-    checkUnread();
-    const iv = setInterval(checkUnread, 15000);
-    return () => clearInterval(iv);
-  }, [token]);
+
 
   const filtered = leads.filter((l) => {
     if (showUncalled && l.called) return false;

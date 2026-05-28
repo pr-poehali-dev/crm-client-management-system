@@ -77,6 +77,7 @@ def action_login(body, conn):
     expires = int(time.time()) + SESSION_TTL
 
     cur = conn.cursor()
+    cur.execute(f"DELETE FROM {SCHEMA}.sessions WHERE user_id = {user_id}")
     cur.execute(
         f"INSERT INTO {SCHEMA}.sessions (user_id, token, expires_at) "
         f"VALUES ({user_id}, '{token}', to_timestamp({expires}))"

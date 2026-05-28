@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useUnread } from "@/hooks/useUnread";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,6 @@ import Icon from "@/components/ui/icon";
 import func2url from "../../backend/func2url.json";
 
 const AUTH_URL = (func2url as Record<string, string>)["auth"];
-const API = (func2url as Record<string, string>)["candidates"];
 
 interface User {
   id: number;
@@ -31,7 +31,7 @@ export default function Users() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { unreadCount } = useUnread(token, me?.id);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [passwordModal, setPasswordModal] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -63,22 +63,7 @@ export default function Users() {
 
   useEffect(() => { load(); }, []);
 
-  useEffect(() => {
-    if (!token) return;
-    const checkUnread = () => {
-      fetch(`${API}?mode=announcements`, { headers: { "X-Session-Id": token } })
-        .then((r) => r.json())
-        .then((data) => {
-          const items: { id: number }[] = data.items || [];
-          const seen = parseInt(localStorage.getItem(`chat_last_seen_${me?.id ?? "anon"}`) || "0", 10);
-          setUnreadCount(items.filter((i) => i.id > seen).length);
-        })
-        .catch(() => {});
-    };
-    checkUnread();
-    const iv = setInterval(checkUnread, 15000);
-    return () => clearInterval(iv);
-  }, [token]);
+
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

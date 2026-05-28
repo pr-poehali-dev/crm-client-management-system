@@ -1,11 +1,8 @@
-import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useAuth } from "@/contexts/AuthContext";
-import func2url from "../../backend/func2url.json";
 import { useBadge } from "@/hooks/useBadge";
-
-const API = (func2url as Record<string, string>)["candidates"];
+import { useUnread } from "@/hooks/useUnread";
 
 interface Section {
   icon: string;
@@ -79,26 +76,9 @@ const sections: Section[] = [
 
 export default function Help() {
   const navigate = useNavigate();
-  const { token } = useAuth();
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { token, user } = useAuth();
+  const { unreadCount } = useUnread(token, user?.id);
   useBadge(unreadCount);
-
-  useEffect(() => {
-    if (!token) return;
-    const checkUnread = () => {
-      fetch(`${API}?mode=announcements`, { headers: { "X-Session-Id": token } })
-        .then((r) => r.json())
-        .then((data) => {
-          const items: { id: number }[] = data.items || [];
-          const seen = parseInt(localStorage.getItem(`chat_last_seen_${user?.id ?? "anon"}`) || "0", 10);
-          setUnreadCount(items.filter((i) => i.id > seen).length);
-        })
-        .catch(() => {});
-    };
-    checkUnread();
-    const iv = setInterval(checkUnread, 15000);
-    return () => clearInterval(iv);
-  }, [token]);
 
   return (
     <div className="min-h-screen bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>

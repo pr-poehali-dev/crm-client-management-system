@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useUnread } from "@/hooks/useUnread";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -261,7 +262,7 @@ export default function Index() {
   const [search, setSearch] = useState("");
   const [showUncalled, setShowUncalled] = useState(false);
   const [leadsCount, setLeadsCount] = useState<number | null>(null);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { unreadCount } = useUnread(token, user?.id);
   useBadge(unreadCount);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -312,23 +313,6 @@ export default function Index() {
       .then((r) => r.text())
       .then((raw) => { const data = JSON.parse(raw); setLeadsCount(Array.isArray(data) ? data.length : 0); })
       .catch(() => {});
-  }, [token]);
-
-  useEffect(() => {
-    if (!token) return;
-    const checkUnread = () => {
-      fetch(`${API}?mode=announcements`, { headers: { "X-Session-Id": token } })
-        .then((r) => r.json())
-        .then((data) => {
-          const items: { id: number }[] = data.items || [];
-          const seen = parseInt(localStorage.getItem(`chat_last_seen_${user?.id ?? "anon"}`) || "0", 10);
-          setUnreadCount(items.filter((i) => i.id > seen).length);
-        })
-        .catch(() => {});
-    };
-    checkUnread();
-    const iv = setInterval(checkUnread, 15000);
-    return () => clearInterval(iv);
   }, [token]);
 
   const filtered = candidates.filter((c) => {
