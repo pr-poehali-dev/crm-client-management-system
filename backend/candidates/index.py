@@ -153,7 +153,7 @@ def action_create(body, cur, conn):
             f"<b>5. Документы:</b>\n"
             f"   ИНН — {inn_str}\n"
             f"   СНИЛС — {snils_str}\n"
-            f"<b>6. Отношения:</b> {g('relations')}\n"
+            f"<b>6. Желаемая специальность:</b> {g('relations')}\n"
             f"<b>7. Заболевания:</b> {g('chronicDiseases')}\n"
             f"<b>8. Судимости:</b> {g('criminalRecord')}\n"
             f"<b>9. Телефон:</b> {g('phone')}\n"
