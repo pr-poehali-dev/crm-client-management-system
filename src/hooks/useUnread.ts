@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import func2url from "../../backend/func2url.json";
 
 const API = (func2url as Record<string, string>)["candidates"];
-const POLL_INTERVAL = 60000;
+const POLL_INTERVAL = 15000;
 
 function seenKey(userId?: number) {
   return `chat_last_seen_${userId ?? "anon"}`;

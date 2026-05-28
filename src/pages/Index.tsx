@@ -266,6 +266,10 @@ export default function Index() {
   const { unreadCount } = useUnread(token, user?.id);
   useBadge(unreadCount);
   usePushNotifications(token);
+
+  useEffect(() => {
+    document.title = unreadCount > 0 ? `(${unreadCount}) CRM — Учёт кандидатов` : "CRM — Учёт кандидатов";
+  }, [unreadCount]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Omit<Candidate, "id" | "createdAt">>(EMPTY);

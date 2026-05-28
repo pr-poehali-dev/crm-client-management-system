@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUnread } from "@/hooks/useUnread";
+import { useBadge } from "@/hooks/useBadge";
 import func2url from "../../backend/func2url.json";
 
 const API = (func2url as Record<string, string>)["candidates"];
@@ -27,6 +29,8 @@ export default function Chat() {
   const { user, token } = useAuth();
   const navigate = useNavigate();
   const isAdmin = user?.role === "admin";
+  const { unreadCount, recheckUnread } = useUnread(token, user?.id);
+  useBadge(unreadCount);
 
   const [items, setItems] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,8 +69,15 @@ export default function Chat() {
     if (items.length > 0) {
       const maxId = Math.max(...items.map((i) => i.id));
       localStorage.setItem(seenKey(user?.id), String(maxId));
+      recheckUnread();
     }
   }, [items]);
+
+  useEffect(() => {
+    const base = "CRM — Объявления";
+    document.title = unreadCount > 0 ? `(${unreadCount}) ${base}` : base;
+    return () => { document.title = "CRM — Учёт кандидатов"; };
+  }, [unreadCount]);
 
   const handleSend = async () => {
     if (!text.trim() || sending) return;
