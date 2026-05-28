@@ -12,6 +12,7 @@ import func2url from "../../backend/func2url.json";
 import * as XLSX from "xlsx";
 import WelcomeTutorial from "@/components/WelcomeTutorial";
 import { useBadge } from "@/hooks/useBadge";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const API = (func2url as Record<string, string>)["candidates"];
 const AUTH_URL = (func2url as Record<string, string>)["auth"];
@@ -264,6 +265,7 @@ export default function Index() {
   const [leadsCount, setLeadsCount] = useState<number | null>(null);
   const { unreadCount } = useUnread(token, user?.id);
   useBadge(unreadCount);
+  usePushNotifications(token);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Omit<Candidate, "id" | "createdAt">>(EMPTY);

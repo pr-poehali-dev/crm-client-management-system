@@ -1,4 +1,4 @@
-const CACHE_NAME = 'crm-v3';
+const CACHE_NAME = 'crm-v4';
 const STATIC_ASSETS = ['/', '/login'];
 
 self.addEventListener('install', (event) => {
@@ -28,6 +28,48 @@ self.addEventListener('message', (event) => {
       }
     }
   }
+});
+
+self.addEventListener('push', (event) => {
+  let title = 'CRM — Объявление';
+  let body = 'Новое сообщение';
+  let icon = 'https://cdn.poehali.dev/projects/9349667d-fe54-44ac-a18d-809d42c7c67e/files/ba8ed286-2fa3-48f9-9a22-0eacab2cada0.jpg';
+
+  if (event.data) {
+    try {
+      const data = event.data.json();
+      title = data.title || title;
+      body = data.body || body;
+    } catch (_) {}
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon,
+      badge: icon,
+      vibrate: [200, 100, 200],
+      tag: 'crm-announcement',
+      renotify: true,
+      data: { url: '/chat' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      return clients.openWindow(url);
+    })
+  );
 });
 
 self.addEventListener('fetch', (event) => {

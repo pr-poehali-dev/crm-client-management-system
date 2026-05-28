@@ -416,6 +416,72 @@ def action_announcements_get(event, conn):
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"items": items})}
 
 
+def send_push_notifications(conn, title: str, body_text: str, exclude_user_id: int = None):
+    vapid_private = os.environ.get("VAPID_PRIVATE_KEY", "")
+    vapid_public = os.environ.get("VAPID_PUBLIC_KEY", "")
+    vapid_email = os.environ.get("VAPID_EMAIL", "mailto:admin@example.com")
+    if not vapid_private or not vapid_public:
+        return
+    try:
+        from pywebpush import webpush, WebPushException
+    except ImportError:
+        return
+    cur = conn.cursor()
+    if exclude_user_id:
+        cur.execute(
+            f"SELECT user_id, endpoint, p256dh, auth FROM {SCHEMA}.push_subscriptions WHERE user_id != %s",
+            (exclude_user_id,),
+        )
+    else:
+        cur.execute(f"SELECT user_id, endpoint, p256dh, auth FROM {SCHEMA}.push_subscriptions")
+    rows = cur.fetchall()
+    cur.close()
+    dead_endpoints = []
+    for user_id, endpoint, p256dh, auth_key in rows:
+        try:
+            webpush(
+                subscription_info={"endpoint": endpoint, "keys": {"p256dh": p256dh, "auth": auth_key}},
+                data=json.dumps({"title": title, "body": body_text}),
+                vapid_private_key=vapid_private,
+                vapid_claims={"sub": vapid_email},
+            )
+        except Exception as e:
+            err_str = str(e)
+            if "410" in err_str or "404" in err_str:
+                dead_endpoints.append(endpoint)
+    if dead_endpoints:
+        cur2 = conn.cursor()
+        for ep in dead_endpoints:
+            cur2.execute(f"DELETE FROM {SCHEMA}.push_subscriptions WHERE endpoint = %s", (ep,))
+        conn.commit()
+        cur2.close()
+
+
+def action_push_subscribe(body, user, conn):
+    subscription = body.get("subscription") or {}
+    endpoint = subscription.get("endpoint", "")
+    keys = subscription.get("keys") or {}
+    p256dh = keys.get("p256dh", "")
+    auth_key = keys.get("auth", "")
+    if not endpoint or not p256dh or not auth_key:
+        return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "Invalid subscription"})}
+    cur = conn.cursor()
+    cur.execute(
+        f"""INSERT INTO {SCHEMA}.push_subscriptions (user_id, endpoint, p256dh, auth)
+            VALUES (%s,%s,%s,%s)
+            ON CONFLICT (user_id, endpoint) DO UPDATE SET p256dh=EXCLUDED.p256dh, auth=EXCLUDED.auth""",
+        (user["id"], endpoint, p256dh, auth_key),
+    )
+    conn.commit()
+    cur.close()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
+
+
+def action_push_vapid_key():
+    public_key = os.environ.get("VAPID_PUBLIC_KEY", "")
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"publicKey": public_key})}
+
+
 def action_announcements_post(body, user, conn):
     if user["role"] != "admin":
         return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Forbidden"})}
@@ -430,6 +496,10 @@ def action_announcements_post(body, user, conn):
     row = cur.fetchone()
     conn.commit()
     cur.close()
+    try:
+        send_push_notifications(conn, "Новое объявление", message, exclude_user_id=user["id"])
+    except Exception:
+        pass
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"id": row[0], "author_id": user["id"], "author_name": user["fullName"], "message": message, "created_at": row[1].isoformat()})}
 
 
@@ -463,8 +533,12 @@ def handler(event: dict, context) -> dict:
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
     session_id = headers.get("x-session-id", "")
 
-    # GET — объявления
+    # GET — VAPID public key
     query_params = event.get("queryStringParameters") or {}
+    if query_params.get("mode") == "vapid_key":
+        return action_push_vapid_key()
+
+    # GET — объявления
     if query_params.get("mode") == "announcements":
         conn = get_conn()
         try:
@@ -509,7 +583,7 @@ def handler(event: dict, context) -> dict:
         if action == "upload":
             return action_upload(body)
 
-        if action in ("announcements_post", "announcements_delete"):
+        if action in ("announcements_post", "announcements_delete", "push_subscribe"):
             conn2 = get_conn()
             try:
                 session_user = get_session_user(conn2, session_id)
@@ -519,6 +593,8 @@ def handler(event: dict, context) -> dict:
                     return action_announcements_post(body, session_user, conn2)
                 if action == "announcements_delete":
                     return action_announcements_delete(body, session_user, conn2)
+                if action == "push_subscribe":
+                    return action_push_subscribe(body, session_user, conn2)
             finally:
                 conn2.close()
 
