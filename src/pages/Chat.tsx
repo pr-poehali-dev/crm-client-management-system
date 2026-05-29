@@ -263,7 +263,9 @@ export default function Chat() {
                           <img src={f.url} alt={f.name} className="h-24 w-auto rounded-lg border border-gray-200 object-cover hover:opacity-80 transition-opacity cursor-zoom-in" />
                         </button>
                       ) : (
-                        <a key={i} href={f.url} target="_blank" rel="noreferrer"
+                        <a key={i}
+                          href={`https://docs.google.com/viewer?url=${encodeURIComponent(f.url)}&embedded=false`}
+                          target="_blank" rel="noreferrer"
                           className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors text-sm text-gray-700 max-w-[200px]">
                           <Icon name={fileIcon(f.type)} size={16} className="text-blue-600 flex-shrink-0" />
                           <span className="truncate">{f.name}</span>
