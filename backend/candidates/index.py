@@ -83,7 +83,11 @@ def action_upload(body):
     ext = {"jpeg": "jpg", "jpe": "jpg"}.get(ext, ext)
 
     key = f"crm-files/{uuid.uuid4().hex}.{ext}"
-    get_s3().put_object(Bucket="files", Key=key, Body=file_bytes, ContentType=content_type)
+    get_s3().put_object(
+        Bucket="files", Key=key, Body=file_bytes,
+        ContentType=content_type,
+        ContentDisposition=f'inline; filename="{original_name}"',
+    )
 
     return {
         "statusCode": 200,
