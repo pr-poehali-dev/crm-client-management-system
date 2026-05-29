@@ -40,6 +40,18 @@ function fileIcon(type: string) {
   return "Paperclip";
 }
 
+function isOffice(type: string) {
+  return type.includes("word") || type.includes("document") ||
+    type.includes("sheet") || type.includes("excel") || type.includes("spreadsheet") ||
+    type.includes("presentation") || type.includes("powerpoint");
+}
+
+function getViewerUrl(f: FileItem) {
+  if (f.type === "application/pdf") return f.url;
+  if (isOffice(f.type)) return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(f.url)}`;
+  return f.url;
+}
+
 async function uploadFile(file: File, token: string): Promise<FileItem> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -264,7 +276,7 @@ export default function Chat() {
                         </button>
                       ) : (
                         <a key={i}
-                          href={`https://docs.google.com/viewer?url=${encodeURIComponent(f.url)}&embedded=false`}
+                          href={getViewerUrl(f)}
                           target="_blank" rel="noreferrer"
                           className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors text-sm text-gray-700 max-w-[200px]">
                           <Icon name={fileIcon(f.type)} size={16} className="text-blue-600 flex-shrink-0" />
