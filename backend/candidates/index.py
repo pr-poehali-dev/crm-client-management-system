@@ -403,16 +403,16 @@ def action_announcements_get(event, conn):
     cur = conn.cursor()
     if last_id:
         cur.execute(
-            f"SELECT id, author_id, author_name, message, created_at FROM {SCHEMA}.announcements WHERE id > %s ORDER BY id ASC",
+            f"SELECT id, author_id, author_name, message, created_at, files FROM {SCHEMA}.announcements WHERE id > %s ORDER BY id ASC",
             (int(last_id),),
         )
     else:
         cur.execute(
-            f"SELECT id, author_id, author_name, message, created_at FROM {SCHEMA}.announcements ORDER BY id ASC"
+            f"SELECT id, author_id, author_name, message, created_at, files FROM {SCHEMA}.announcements ORDER BY id ASC"
         )
     rows = cur.fetchall()
     cur.close()
-    items = [{"id": r[0], "author_id": r[1], "author_name": r[2], "message": r[3], "created_at": r[4].isoformat()} for r in rows]
+    items = [{"id": r[0], "author_id": r[1], "author_name": r[2], "message": r[3], "created_at": r[4].isoformat(), "files": r[5] if r[5] else []} for r in rows]
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"items": items})}
 
 
@@ -486,21 +486,23 @@ def action_announcements_post(body, user, conn):
     if user["role"] != "admin":
         return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Forbidden"})}
     message = (body.get("message") or "").strip()
-    if not message:
-        return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "message required"})}
+    files = body.get("files") or []
+    if not message and not files:
+        return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "message or files required"})}
     cur = conn.cursor()
     cur.execute(
-        f"INSERT INTO {SCHEMA}.announcements (author_id, author_name, message) VALUES (%s,%s,%s) RETURNING id, created_at",
-        (user["id"], user["fullName"], message),
+        f"INSERT INTO {SCHEMA}.announcements (author_id, author_name, message, files) VALUES (%s,%s,%s,%s) RETURNING id, created_at",
+        (user["id"], user["fullName"], message, json.dumps(files)),
     )
     row = cur.fetchone()
     conn.commit()
     cur.close()
     try:
-        send_push_notifications(conn, "Новое объявление", message, exclude_user_id=user["id"])
+        push_text = message or f"Прикреплено файлов: {len(files)}"
+        send_push_notifications(conn, "Новое объявление", push_text, exclude_user_id=user["id"])
     except Exception:
         pass
-    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"id": row[0], "author_id": user["id"], "author_name": user["fullName"], "message": message, "created_at": row[1].isoformat()})}
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"id": row[0], "author_id": user["id"], "author_name": user["fullName"], "message": message, "files": files, "created_at": row[1].isoformat()})}
 
 
 def action_announcements_delete(query, user, conn):

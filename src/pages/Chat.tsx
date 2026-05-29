@@ -8,11 +8,18 @@ import func2url from "../../backend/func2url.json";
 
 const API = (func2url as Record<string, string>)["candidates"];
 
+interface FileItem {
+  name: string;
+  url: string;
+  type: string;
+}
+
 interface Announcement {
   id: number;
   author_id: number;
   author_name: string;
   message: string;
+  files: FileItem[];
   created_at: string;
 }
 
@@ -23,6 +30,37 @@ function formatDate(iso: string) {
 
 function seenKey(userId?: number) {
   return `chat_last_seen_${userId ?? "anon"}`;
+}
+
+function fileIcon(type: string) {
+  if (type.startsWith("image/")) return "Image";
+  if (type === "application/pdf") return "FileText";
+  if (type.includes("word") || type.includes("document")) return "FileType";
+  if (type.includes("sheet") || type.includes("excel") || type.includes("spreadsheet")) return "Sheet";
+  return "Paperclip";
+}
+
+async function uploadFile(file: File, token: string): Promise<FileItem> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64 = (reader.result as string).split(",")[1];
+        const res = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Session-Id": token },
+          body: JSON.stringify({ action: "upload", data: base64, name: file.name, type: file.type }),
+        });
+        const text = await res.text();
+        let parsed = JSON.parse(text);
+        if (typeof parsed === "string") parsed = JSON.parse(parsed);
+        if (!parsed.url) throw new Error("No URL");
+        resolve({ url: parsed.url, name: file.name, type: file.type });
+      } catch (e) { reject(e); }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 export default function Chat() {
@@ -36,10 +74,13 @@ export default function Chat() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [text, setText] = useState("");
+  const [attachedFiles, setAttachedFiles] = useState<FileItem[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchAnnouncements = useCallback(async () => {
     const controller = new AbortController();
@@ -79,15 +120,33 @@ export default function Chat() {
     return () => { document.title = "CRM — Учёт кандидатов"; };
   }, [unreadCount]);
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files || []);
+    if (!picked.length) return;
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setUploading(true);
+    try {
+      const uploaded = await Promise.all(picked.map((f) => uploadFile(f, token || "")));
+      setAttachedFiles((prev) => [...prev, ...uploaded]);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeFile = (idx: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const handleSend = async () => {
-    if (!text.trim() || sending) return;
+    if ((!text.trim() && attachedFiles.length === 0) || sending) return;
     setSending(true);
     await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
-      body: JSON.stringify({ action: "announcements_post", message: text.trim() }),
+      body: JSON.stringify({ action: "announcements_post", message: text.trim(), files: attachedFiles }),
     });
     setText("");
+    setAttachedFiles([]);
     setSending(false);
     await fetchAnnouncements();
     textareaRef.current?.focus();
@@ -192,7 +251,26 @@ export default function Chat() {
                     </button>
                   )}
                 </div>
-                <p className="text-base text-gray-900 font-medium whitespace-pre-wrap leading-relaxed">{item.message}</p>
+                {item.message && (
+                  <p className="text-base text-gray-900 font-medium whitespace-pre-wrap leading-relaxed">{item.message}</p>
+                )}
+                {item.files && item.files.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {item.files.map((f, i) => (
+                      f.type.startsWith("image/") ? (
+                        <a key={i} href={f.url} target="_blank" rel="noreferrer" className="block">
+                          <img src={f.url} alt={f.name} className="h-24 w-auto rounded-lg border border-gray-200 object-cover hover:opacity-90 transition-opacity" />
+                        </a>
+                      ) : (
+                        <a key={i} href={f.url} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors text-sm text-gray-700 max-w-[200px]">
+                          <Icon name={fileIcon(f.type)} size={16} className="text-blue-600 flex-shrink-0" />
+                          <span className="truncate">{f.name}</span>
+                        </a>
+                      )
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
             <div ref={bottomRef} />
@@ -203,24 +281,56 @@ export default function Chat() {
       {/* Input — only admin */}
       {isAdmin && (
         <div className="border-t border-gray-200 bg-white px-4 py-3">
-          <div className="max-w-3xl mx-auto flex gap-2 items-end">
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Напишите объявление... (Enter — отправить, Shift+Enter — новая строка)"
-              rows={2}
-              className="flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition"
-            />
-            <button
-              onClick={handleSend}
-              disabled={!text.trim() || sending}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg text-white text-sm font-medium transition disabled:opacity-40"
-              style={{ background: "hsl(217, 60%, 28%)" }}
-            >
-              {sending ? <Icon name="Loader2" size={16} className="animate-spin" /> : <Icon name="Send" size={16} />}
-            </button>
+          <div className="max-w-3xl mx-auto flex flex-col gap-2">
+            {/* Прикреплённые файлы */}
+            {attachedFiles.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {attachedFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-800 max-w-[160px]">
+                    <Icon name={fileIcon(f.type)} size={12} className="flex-shrink-0" />
+                    <span className="truncate">{f.name}</span>
+                    <button onClick={() => removeFile(i)} className="ml-1 text-blue-400 hover:text-red-500 flex-shrink-0">
+                      <Icon name="X" size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2 items-end">
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Напишите объявление... (Enter — отправить, Shift+Enter — новая строка)"
+                rows={2}
+                className="flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition"
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-blue-600 transition-colors disabled:opacity-40"
+                title="Прикрепить файл"
+              >
+                {uploading ? <Icon name="Loader2" size={16} className="animate-spin" /> : <Icon name="Paperclip" size={16} />}
+              </button>
+              <button
+                onClick={handleSend}
+                disabled={(!text.trim() && attachedFiles.length === 0) || sending || uploading}
+                className="flex items-center gap-1 px-4 py-2 rounded-lg text-white text-sm font-medium transition disabled:opacity-40"
+                style={{ background: "hsl(217, 60%, 28%)" }}
+              >
+                {sending ? <Icon name="Loader2" size={16} className="animate-spin" /> : <Icon name="Send" size={16} />}
+              </button>
+            </div>
           </div>
         </div>
       )}
