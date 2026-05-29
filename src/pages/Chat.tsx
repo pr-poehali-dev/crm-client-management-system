@@ -78,6 +78,7 @@ export default function Chat() {
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -258,9 +259,9 @@ export default function Chat() {
                   <div className="flex flex-wrap gap-2 mt-3">
                     {item.files.map((f, i) => (
                       f.type.startsWith("image/") ? (
-                        <a key={i} href={f.url} target="_blank" rel="noreferrer" className="block">
-                          <img src={f.url} alt={f.name} className="h-24 w-auto rounded-lg border border-gray-200 object-cover hover:opacity-90 transition-opacity" />
-                        </a>
+                        <button key={i} onClick={() => setLightbox(f.url)} className="block focus:outline-none">
+                          <img src={f.url} alt={f.name} className="h-24 w-auto rounded-lg border border-gray-200 object-cover hover:opacity-80 transition-opacity cursor-zoom-in" />
+                        </button>
                       ) : (
                         <a key={i} href={f.url} target="_blank" rel="noreferrer"
                           className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors text-sm text-gray-700 max-w-[200px]">
@@ -332,6 +333,26 @@ export default function Chat() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            onClick={() => setLightbox(null)}
+            className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+          >
+            <Icon name="X" size={28} />
+          </button>
+          <img
+            src={lightbox}
+            alt=""
+            className="max-w-[90vw] max-h-[90vh] rounded-xl shadow-2xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>
