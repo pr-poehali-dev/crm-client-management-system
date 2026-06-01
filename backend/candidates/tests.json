@@ -55,7 +55,7 @@
       "expectedStatus": 400
     },
     {
-      "name": "Webhook — приём лида с внешнего сайта",
+      "name": "Webhook — без секрета возвращает 401",
       "method": "POST",
       "path": "/",
       "body": {
@@ -65,8 +65,17 @@
         "city": "Москва",
         "source": "test-site"
       },
-      "expectedStatus": 200,
-      "bodyMatcher": "partial"
+      "expectedStatus": 401
+    },
+    {
+      "name": "DMP.ONE webhook — без секрета возвращает 401",
+      "method": "POST",
+      "path": "/?action=dmp",
+      "body": {
+        "phone": "7(900)123-45-67",
+        "name": "Тестов Тест"
+      },
+      "expectedStatus": 401
     }
   ]
 }
