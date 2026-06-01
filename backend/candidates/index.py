@@ -257,25 +257,19 @@ def action_convert_lead(body, cur, conn):
     return {"statusCode": 200, "headers": CORS, "body": json.dumps(row, ensure_ascii=False)}
 
 
-def action_dmp(event: dict) -> dict:
+def action_dmp(event: dict, body: dict = None) -> dict:
     """Webhook от DMP.ONE — создаёт лида из входящего запроса."""
     from datetime import date
 
-    webhook_secret = os.environ.get("WEBHOOK_SECRET", "")
-    if webhook_secret:
-        headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
-        if headers.get("x-webhook-secret", "") != webhook_secret:
-            return {"statusCode": 401, "headers": CORS, "body": json.dumps({"error": "Unauthorized"})}
-
-    raw_body = event.get("body", "") or ""
-    if event.get("isBase64Encoded"):
-        import base64 as _b64
-        raw_body = _b64.b64decode(raw_body).decode("utf-8")
-
-    try:
-        body = json.loads(raw_body) if raw_body else {}
-    except Exception:
-        return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "Invalid JSON"})}
+    if body is None:
+        raw_body = event.get("body", "") or ""
+        if event.get("isBase64Encoded"):
+            import base64 as _b64
+            raw_body = _b64.b64decode(raw_body).decode("utf-8")
+        try:
+            body = json.loads(raw_body) if raw_body else {}
+        except Exception:
+            return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "Invalid JSON"})}
 
     phone = (body.get("phone") or body.get("tel") or "").strip()
     full_name = (body.get("name") or body.get("full_name") or body.get("fullName") or "").strip()
@@ -665,6 +659,9 @@ def handler(event: dict, context) -> dict:
     if method == "POST":
         body = json.loads(event.get("body") or "{}")
         action = body.get("action", "")
+
+        if action == "dmp":
+            return action_dmp(event, body)
 
         if action == "webhook":
             return action_webhook(event)

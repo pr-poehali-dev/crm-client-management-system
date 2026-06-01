@@ -68,14 +68,16 @@
       "expectedStatus": 401
     },
     {
-      "name": "DMP.ONE webhook — без секрета возвращает 401",
+      "name": "DMP.ONE webhook — приём лида без секрета",
       "method": "POST",
-      "path": "/?action=dmp",
+      "path": "/",
       "body": {
+        "action": "dmp",
         "phone": "7(900)123-45-67",
         "name": "Тестов Тест"
       },
-      "expectedStatus": 401
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
     }
   ]
 }
