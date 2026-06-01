@@ -12,6 +12,15 @@ import { useBadge } from "@/hooks/useBadge";
 
 const API = (func2url as Record<string, string>)["candidates"];
 
+const CALL_RESULTS = [
+  { value: "Недозвон", label: "Недозвон", color: "text-orange-600 bg-orange-50 border-orange-200" },
+  { value: "Занято", label: "Занято", color: "text-yellow-600 bg-yellow-50 border-yellow-200" },
+  { value: "Отказ", label: "Отказ", color: "text-red-600 bg-red-50 border-red-200" },
+  { value: "Заинтересован", label: "Заинтересован", color: "text-green-600 bg-green-50 border-green-200" },
+  { value: "Перезвонит", label: "Перезвонит", color: "text-blue-600 bg-blue-50 border-blue-200" },
+  { value: "Дубль", label: "Дубль", color: "text-gray-600 bg-gray-50 border-gray-200" },
+];
+
 interface Lead {
   id: number;
   fullName: string;
@@ -21,6 +30,7 @@ interface Lead {
   notes: string;
   createdAt: string;
   called: boolean;
+  callResult: string;
 }
 
 interface ApiLead {
@@ -32,6 +42,7 @@ interface ApiLead {
   notes: string;
   created_at: string;
   called: boolean;
+  call_result: string;
 }
 
 function fromApi(r: ApiLead): Lead {
@@ -44,6 +55,7 @@ function fromApi(r: ApiLead): Lead {
     notes: r.notes || "",
     createdAt: r.created_at || "",
     called: r.called || false,
+    callResult: r.call_result || "",
   };
 }
 
@@ -53,6 +65,16 @@ function InfoRow({ label, value }: { label: string; value?: string }) {
       <div className="text-xs text-muted-foreground font-medium mb-0.5">{label}</div>
       <div className="text-sm">{value || "—"}</div>
     </div>
+  );
+}
+
+function CallResultBadge({ result }: { result: string }) {
+  const r = CALL_RESULTS.find((x) => x.value === result);
+  if (!result || !r) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${r.color}`}>
+      {r.label}
+    </span>
   );
 }
 
@@ -68,6 +90,7 @@ export default function Leads() {
   const [showUncalled, setShowUncalled] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [convertingId, setConvertingId] = useState<number | null>(null);
+  const [resultMenuId, setResultMenuId] = useState<number | null>(null);
   const { unreadCount } = useUnread(token, user?.id);
   useBadge(unreadCount);
 
@@ -94,8 +117,6 @@ export default function Leads() {
   }, [token]);
 
   useEffect(() => { loadLeads(); }, [loadLeads]);
-
-
 
   const filtered = leads.filter((l) => {
     if (showUncalled && l.called) return false;
@@ -128,6 +149,16 @@ export default function Leads() {
     });
   };
 
+  const handleSetCallResult = async (id: number, result: string) => {
+    setLeads((prev) => prev.map((l) => l.id === id ? { ...l, callResult: result, called: result !== "" } : l));
+    setResultMenuId(null);
+    await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+      body: JSON.stringify({ action: "set_call_result", id, result }),
+    });
+  };
+
   const handleDelete = async (id: number) => {
     await fetch(API, {
       method: "POST",
@@ -148,6 +179,7 @@ export default function Leads() {
       "Примечание": l.notes,
       "Дата заявки": l.createdAt ? new Date(l.createdAt).toLocaleString("ru-RU") : "",
       "Прозвонен": l.called ? "Да" : "Нет",
+      "Результат звонка": l.callResult,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -159,7 +191,8 @@ export default function Leads() {
   const detail = detailId !== null ? leads.find((l) => l.id === detailId) : null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+    <div className="min-h-screen flex flex-col bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}
+      onClick={() => setResultMenuId(null)}>
       {/* Header */}
       <header className="text-white px-6 py-4 flex items-center justify-between shadow-lg" style={{ background: "hsl(217, 60%, 18%)" }}>
         <div className="flex items-center gap-3">
@@ -256,10 +289,10 @@ export default function Leads() {
             <button onClick={loadLeads} className="text-xs underline hover:text-foreground transition-colors">Повторить</button>
           </div>
         ) : (
-          <table className="w-full text-xs border-collapse" style={{ minWidth: "700px" }}>
+          <table className="w-full text-xs border-collapse" style={{ minWidth: "820px" }}>
             <thead>
               <tr style={{ background: "hsl(217, 60%, 22%)" }}>
-                {["№", "ФИО", "Телефон", "Город", "Гражданство", "Примечание", "Дата", "Прозвонен", ""].map((h, i) => (
+                {["№", "ФИО", "Телефон", "Город", "Гражданство", "Примечание", "Дата", "Результат", ""].map((h, i) => (
                   <th key={i} className="text-left px-3 py-2 font-medium text-xs tracking-wide text-white/80 border-b border-white/10 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -267,7 +300,7 @@ export default function Leads() {
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="text-center py-20 text-muted-foreground">
+                  <td colSpan={9} className="text-center py-20 text-muted-foreground">
                     <Icon name="Inbox" size={36} className="mx-auto mb-3 opacity-25" />
                     <div className="text-sm">Нет лидов. Они появятся здесь после заявок с сайта.</div>
                   </td>
@@ -277,21 +310,59 @@ export default function Leads() {
                 <tr key={l.id} className="border-b border-border hover:bg-amber-50/40 transition-colors group animate-fade-in bg-white">
                   <td className="px-3 py-2 text-muted-foreground font-mono">{idx + 1}</td>
                   <td className="px-3 py-2 font-semibold whitespace-nowrap max-w-[160px] truncate">{l.fullName || <span className="text-muted-foreground italic">Без имени</span>}</td>
-                  <td className="px-3 py-2 whitespace-nowrap font-mono">{l.phone || <span className="text-muted-foreground">—</span>}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {l.phone ? (
+                      <a
+                        href={`tel:${l.phone}`}
+                        className="font-mono text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                        title="Позвонить"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Icon name="Phone" size={11} />
+                        {l.phone}
+                      </a>
+                    ) : <span className="text-muted-foreground">—</span>}
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap">{l.city || <span className="text-muted-foreground">—</span>}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{l.citizenship || <span className="text-muted-foreground">—</span>}</td>
                   <td className="px-3 py-2 max-w-[200px]">
                     <div className="truncate text-muted-foreground">{l.notes || "—"}</div>
                   </td>
-                  <td className="px-3 py-2 font-mono text-muted-foreground whitespace-nowrap">{l.createdAt}</td>
-                  <td className="px-3 py-2 text-center">
+                  <td className="px-3 py-2 font-mono text-muted-foreground whitespace-nowrap">{l.createdAt ? new Date(l.createdAt).toLocaleDateString("ru-RU") : "—"}</td>
+                  <td className="px-3 py-2 relative" onClick={(e) => e.stopPropagation()}>
                     <button
-                      onClick={() => handleToggleCalled(l.id, !l.called)}
-                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${l.called ? "bg-green-500 border-green-500 text-white" : "border-gray-300 hover:border-green-400"}`}
-                      title={l.called ? "Прозвонен" : "Отметить как прозвоненный"}
+                      onClick={() => setResultMenuId(resultMenuId === l.id ? null : l.id)}
+                      className={`flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border transition-colors ${
+                        l.callResult
+                          ? CALL_RESULTS.find((x) => x.value === l.callResult)?.color || "text-muted-foreground bg-muted/30 border-border"
+                          : "text-muted-foreground bg-muted/30 border-border hover:border-blue-300 hover:text-blue-600"
+                      }`}
+                      title="Результат звонка"
                     >
-                      {l.called && <Icon name="Check" size={11} />}
+                      {l.callResult || "Выбрать"}
+                      <Icon name="ChevronDown" size={10} />
                     </button>
+                    {resultMenuId === l.id && (
+                      <div className="absolute z-50 left-0 top-full mt-1 bg-white border border-border rounded shadow-lg min-w-[140px] py-1">
+                        {CALL_RESULTS.map((r) => (
+                          <button
+                            key={r.value}
+                            onClick={() => handleSetCallResult(l.id, r.value)}
+                            className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors ${l.callResult === r.value ? "font-semibold" : ""}`}
+                          >
+                            <span className={`inline-block px-1.5 py-0.5 rounded border text-[10px] ${r.color}`}>{r.label}</span>
+                          </button>
+                        ))}
+                        {l.callResult && (
+                          <button
+                            onClick={() => handleSetCallResult(l.id, "")}
+                            className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/50 border-t border-border mt-1 transition-colors"
+                          >
+                            Сбросить
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-2 sticky right-0 bg-white group-hover:bg-amber-50/40">
                     <div className="flex items-center gap-0.5">
@@ -333,10 +404,22 @@ export default function Leads() {
               <div className="space-y-4 pt-2">
                 <div className="grid grid-cols-2 gap-3">
                   <InfoRow label="ФИО" value={detail.fullName} />
-                  <InfoRow label="Телефон" value={detail.phone} />
+                  <div>
+                    <div className="text-xs text-muted-foreground font-medium mb-0.5">Телефон</div>
+                    {detail.phone ? (
+                      <a href={`tel:${detail.phone}`} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+                        <Icon name="Phone" size={13} />
+                        {detail.phone}
+                      </a>
+                    ) : <div className="text-sm">—</div>}
+                  </div>
                   <InfoRow label="Город" value={detail.city} />
                   <InfoRow label="Гражданство" value={detail.citizenship} />
-                  <InfoRow label="Дата заявки" value={detail.createdAt} />
+                  <InfoRow label="Дата заявки" value={detail.createdAt ? new Date(detail.createdAt).toLocaleDateString("ru-RU") : ""} />
+                  <div>
+                    <div className="text-xs text-muted-foreground font-medium mb-1">Результат звонка</div>
+                    <CallResultBadge result={detail.callResult} />
+                  </div>
                 </div>
                 {detail.notes && (
                   <div>
@@ -344,6 +427,27 @@ export default function Leads() {
                     <div className="bg-muted/50 rounded p-3 text-sm leading-relaxed whitespace-pre-line">{detail.notes}</div>
                   </div>
                 )}
+
+                {/* Выбор результата звонка в модалке */}
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground mb-2">Отметить результат звонка</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CALL_RESULTS.map((r) => (
+                      <button
+                        key={r.value}
+                        onClick={() => handleSetCallResult(detail.id, r.value)}
+                        className={`text-[11px] font-medium px-2 py-1 rounded border transition-colors ${
+                          detail.callResult === r.value
+                            ? r.color + " ring-2 ring-offset-1 ring-current"
+                            : "text-muted-foreground border-border hover:border-gray-400"
+                        }`}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex justify-between items-center pt-2 border-t border-border gap-2">
                   <Button
                     onClick={() => handleConvert(detail.id)}

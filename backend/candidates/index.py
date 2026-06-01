@@ -230,6 +230,22 @@ def action_toggle_called(body, cur, conn):
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"id": str(row[0]), "called": row[1]})}
 
 
+def action_set_call_result(body, cur, conn):
+    """Сохранение результата звонка по лиду."""
+    candidate_id = int(body.get("id", 0))
+    result = body.get("result", "")
+    called = result != ""
+    cur.execute(
+        f"UPDATE {SCHEMA}.candidates SET call_result=%s, called=%s WHERE id=%s RETURNING id, call_result, called",
+        (result, called, candidate_id),
+    )
+    row = cur.fetchone()
+    if not row:
+        return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Not found"})}
+    conn.commit()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"id": str(row[0]), "call_result": row[1], "called": row[2]})}
+
+
 def action_convert_lead(body, cur, conn):
     candidate_id = int(body.get("id", 0))
     cur.execute(
@@ -617,6 +633,8 @@ def handler(event: dict, context) -> dict:
                 return action_convert_lead(body, cur, conn)
             if action == "toggle_called":
                 return action_toggle_called(body, cur, conn)
+            if action == "set_call_result":
+                return action_set_call_result(body, cur, conn)
             return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": f"Unknown action: {action}"})}
         finally:
             cur.close()

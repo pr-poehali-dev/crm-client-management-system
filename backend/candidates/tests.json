@@ -41,6 +41,13 @@
       "expectedStatus": 404
     },
     {
+      "name": "POST set_call_result — unknown id returns 404",
+      "method": "POST",
+      "path": "/",
+      "body": { "action": "set_call_result", "id": 999999, "result": "Недозвон" },
+      "expectedStatus": 404
+    },
+    {
       "name": "POST upload without data returns 400",
       "method": "POST",
       "path": "/",
