@@ -210,7 +210,7 @@ export default function Leads() {
 
 
   return (
-    <div className="min-h-screen flex flex-col bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+    <div className="min-h-screen flex flex-col bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }} onClick={() => commentEditId !== null && setCommentEditId(null)}>
       {/* Header */}
       <header className="text-white px-6 py-4 flex items-center justify-between shadow-lg" style={{ background: "hsl(217, 60%, 18%)" }}>
         <div className="flex items-center gap-3">
@@ -359,39 +359,55 @@ export default function Leads() {
                       ))}
                     </select>
                   </td>
-                  <td className="px-3 py-2 max-w-[180px]">
-                    {commentEditId === l.id ? (
-                      <div className="flex items-center gap-1">
-                        <input
+                  <td className="px-3 py-2 max-w-[180px] relative">
+                    <button
+                      onClick={() => { setCommentEditId(l.id); setCommentDraft(l.callComment || ""); }}
+                      className="text-left w-full text-[11px] text-muted-foreground hover:text-foreground group/comment flex items-center gap-1"
+                      title={l.callComment || "Добавить комментарий"}
+                    >
+                      {l.callComment
+                        ? <span className="truncate text-foreground/80">{l.callComment}</span>
+                        : <span className="opacity-0 group-hover/comment:opacity-60 italic">+ добавить</span>
+                      }
+                      <Icon name="Pencil" size={10} className="shrink-0 opacity-0 group-hover/comment:opacity-50" />
+                    </button>
+                    {commentEditId === l.id && (
+                      <div
+                        className="fixed z-50 bg-white border border-blue-300 rounded-lg shadow-xl p-3 flex flex-col gap-2"
+                        style={{ width: 280, top: "50%", left: "50%", transform: "translate(-50%, -50%)" }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="text-xs font-semibold text-foreground mb-0.5 flex items-center justify-between">
+                          <span>Комментарий к звонку</span>
+                          <button onClick={() => setCommentEditId(null)} className="text-muted-foreground hover:text-foreground">
+                            <Icon name="X" size={14} />
+                          </button>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground truncate">{l.fullName || "Без имени"}</div>
+                        <textarea
                           autoFocus
                           value={commentDraft}
                           onChange={(e) => setCommentDraft(e.target.value)}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") handleSaveComment(l.id, commentDraft);
                             if (e.key === "Escape") setCommentEditId(null);
+                            if (e.key === "Enter" && e.ctrlKey) handleSaveComment(l.id, commentDraft);
                           }}
-                          className="text-[11px] border border-blue-400 rounded px-1.5 py-0.5 w-full focus:outline-none"
-                          placeholder="Комментарий..."
+                          rows={4}
+                          className="text-xs border border-border rounded px-2 py-1.5 w-full focus:outline-none focus:border-blue-400 resize-none"
+                          placeholder="Введите комментарий..."
                         />
-                        <button onClick={() => handleSaveComment(l.id, commentDraft)} className="text-blue-600 hover:text-blue-800 shrink-0" title="Сохранить">
-                          <Icon name="Check" size={13} />
-                        </button>
-                        <button onClick={() => setCommentEditId(null)} className="text-muted-foreground hover:text-foreground shrink-0" title="Отмена">
-                          <Icon name="X" size={13} />
-                        </button>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-muted-foreground">Ctrl+Enter — сохранить</span>
+                          <div className="flex gap-1.5">
+                            <button onClick={() => setCommentEditId(null)} className="text-xs px-2.5 py-1 rounded border border-border hover:bg-muted transition-colors">
+                              Отмена
+                            </button>
+                            <button onClick={() => handleSaveComment(l.id, commentDraft)} className="text-xs px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+                              Сохранить
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    ) : (
-                      <button
-                        onClick={() => { setCommentEditId(l.id); setCommentDraft(l.callComment || ""); }}
-                        className="text-left w-full truncate text-[11px] text-muted-foreground hover:text-foreground group/comment flex items-center gap-1"
-                        title={l.callComment || "Добавить комментарий"}
-                      >
-                        {l.callComment
-                          ? <span className="truncate text-foreground/80">{l.callComment}</span>
-                          : <span className="opacity-0 group-hover/comment:opacity-60 italic">+ добавить</span>
-                        }
-                        <Icon name="Pencil" size={10} className="shrink-0 opacity-0 group-hover/comment:opacity-50" />
-                      </button>
                     )}
                   </td>
                   <td className="px-3 py-2 sticky right-0 bg-white group-hover:bg-amber-50/40">
