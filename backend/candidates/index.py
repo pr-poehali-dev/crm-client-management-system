@@ -218,10 +218,9 @@ def action_delete(body, cur, conn):
 
 def action_toggle_called(body, cur, conn):
     candidate_id = int(body.get("id", 0))
-    called = bool(body.get("called", False))
+    called = "true" if bool(body.get("called", False)) else "false"
     cur.execute(
-        f"UPDATE {SCHEMA}.candidates SET called=%s WHERE id=%s RETURNING id, called",
-        (called, candidate_id),
+        f"UPDATE {SCHEMA}.candidates SET called={called} WHERE id={candidate_id} RETURNING id, called"
     )
     row = cur.fetchone()
     if not row:
@@ -233,11 +232,10 @@ def action_toggle_called(body, cur, conn):
 def action_set_call_result(body, cur, conn):
     """Сохранение результата звонка по лиду."""
     candidate_id = int(body.get("id", 0))
-    result = body.get("result", "")
-    called = result != ""
+    result = str(body.get("result", "")).replace("'", "''")
+    called = "true" if result != "" else "false"
     cur.execute(
-        f"UPDATE {SCHEMA}.candidates SET call_result=%s, called=%s WHERE id=%s RETURNING id, call_result, called",
-        (result, called, candidate_id),
+        f"UPDATE {SCHEMA}.candidates SET call_result='{result}', called={called} WHERE id={candidate_id} RETURNING id, call_result, called"
     )
     row = cur.fetchone()
     if not row:

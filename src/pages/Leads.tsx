@@ -150,13 +150,11 @@ export default function Leads() {
 
   const handleSetCallResult = async (id: number, result: string) => {
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, callResult: result, called: result !== "" } : l));
-    const res = await fetch(API, {
+    await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
       body: JSON.stringify({ action: "set_call_result", id, result }),
     });
-    const text = await res.text();
-    console.log("set_call_result response", res.status, text);
   };
 
   const handleDelete = async (id: number) => {
