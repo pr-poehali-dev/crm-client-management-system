@@ -150,7 +150,6 @@ export default function Leads() {
 
   const handleSetCallResult = async (id: number, result: string) => {
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, callResult: result, called: result !== "" } : l));
-    setResultMenuId(null);
     await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
