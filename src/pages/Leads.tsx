@@ -206,11 +206,57 @@ export default function Leads() {
   };
 
   const detail = detailId !== null ? leads.find((l) => l.id === detailId) : null;
+  const commentLead = commentEditId !== null ? leads.find((l) => l.id === commentEditId) : null;
 
-
+  const closeComment = () => {
+    setCommentDraft(commentLead?.callComment || "");
+    setCommentEditId(null);
+  };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }} onClick={() => { if (commentEditId !== null) { const lead = leads.find(l => l.id === commentEditId); setCommentDraft(lead?.callComment || ""); setCommentEditId(null); } }}>
+    <div className="min-h-screen flex flex-col bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+
+      {/* Comment popup */}
+      {commentLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={closeComment}>
+          <div
+            className="bg-white border border-blue-300 rounded-lg shadow-2xl p-5 flex flex-col gap-3 w-[440px] max-w-[95vw]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-sm font-semibold text-foreground flex items-center justify-between">
+              <span>Комментарий к звонку</span>
+              <button onClick={closeComment} className="text-muted-foreground hover:text-foreground">
+                <Icon name="X" size={16} />
+              </button>
+            </div>
+            <div className="text-xs text-muted-foreground">{commentLead.fullName || "Без имени"} · {commentLead.phone || ""}</div>
+            <textarea
+              autoFocus
+              value={commentDraft}
+              onChange={(e) => setCommentDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") closeComment();
+                if (e.key === "Enter" && e.ctrlKey) handleSaveComment(commentLead.id, commentDraft);
+              }}
+              rows={6}
+              className="text-sm border border-border rounded px-3 py-2 w-full focus:outline-none focus:border-blue-400 resize-none"
+              placeholder="Введите комментарий..."
+            />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] text-muted-foreground">Ctrl+Enter — сохранить</span>
+              <div className="flex gap-2">
+                <button onClick={closeComment} className="text-xs px-3 py-1.5 rounded border border-border hover:bg-muted transition-colors">
+                  Отмена
+                </button>
+                <button onClick={() => handleSaveComment(commentLead.id, commentDraft)} className="text-xs px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+                  Сохранить
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="text-white px-6 py-4 flex items-center justify-between shadow-lg" style={{ background: "hsl(217, 60%, 18%)" }}>
         <div className="flex items-center gap-3">
@@ -371,50 +417,7 @@ export default function Leads() {
                       }
                       <Icon name="Pencil" size={10} className="shrink-0 opacity-0 group-hover/comment:opacity-50" />
                     </button>
-                    {commentEditId === l.id && (
-                      <div
-                        className="fixed z-50 bg-white border border-blue-300 rounded-lg shadow-xl p-4 flex flex-col gap-3"
-                        style={{ width: 420, top: "50%", left: "50%", transform: "translate(-50%, -50%)" }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="text-sm font-semibold text-foreground flex items-center justify-between">
-                          <span>Комментарий к звонку</span>
-                          <button onClick={() => { setCommentDraft(l.callComment || ""); setCommentEditId(null); }} className="text-muted-foreground hover:text-foreground">
-                            <Icon name="X" size={16} />
-                          </button>
-                        </div>
-                        <div className="text-xs text-muted-foreground">{l.fullName || "Без имени"} · {l.phone || ""}</div>
-                        <textarea
-                          autoFocus
-                          value={commentDraft}
-                          onChange={(e) => setCommentDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Escape") { setCommentDraft(l.callComment || ""); setCommentEditId(null); }
-                            if (e.key === "Enter" && e.ctrlKey) handleSaveComment(l.id, commentDraft);
-                          }}
-                          rows={6}
-                          className="text-sm border border-border rounded px-3 py-2 w-full focus:outline-none focus:border-blue-400 resize-none"
-                          placeholder="Введите комментарий..."
-                        />
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[11px] text-muted-foreground">Ctrl+Enter — сохранить</span>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => { setCommentDraft(l.callComment || ""); setCommentEditId(null); }}
-                              className="text-xs px-3 py-1.5 rounded border border-border hover:bg-muted transition-colors"
-                            >
-                              Отмена
-                            </button>
-                            <button
-                              onClick={() => handleSaveComment(l.id, commentDraft)}
-                              className="text-xs px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-                            >
-                              Сохранить
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+
                   </td>
                   <td className="px-3 py-2 sticky right-0 bg-white group-hover:bg-amber-50/40">
                     <div className="flex items-center gap-0.5">
