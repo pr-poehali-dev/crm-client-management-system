@@ -25,8 +25,7 @@ def get_session_user(conn, session_id: str):
     cur.execute(
         f"SELECT u.id, u.full_name, u.role FROM {AUTH_SCHEMA}.sessions s "
         f"JOIN {AUTH_SCHEMA}.users u ON u.id = s.user_id "
-        f"WHERE s.token = %s AND s.expires_at > NOW()",
-        (session_id,),
+        f"WHERE s.token = {q(session_id)} AND s.expires_at > NOW()"
     )
     row = cur.fetchone()
     cur.close()
@@ -37,6 +36,18 @@ def get_session_user(conn, session_id: str):
 
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
+
+
+def q(val) -> str:
+    """Экранирует строку для безопасной подстановки в SQL (Simple Query Protocol)."""
+    if val is None:
+        return "NULL"
+    return "'" + str(val).replace("'", "''") + "'"
+
+
+def qb(val) -> str:
+    """Булево значение для SQL."""
+    return "true" if val else "false"
 
 
 def get_s3():
@@ -111,35 +122,20 @@ def send_telegram(text: str):
 
 
 def action_create(body, cur, conn):
+    created_at = q(body.get("createdAt")) if body.get("createdAt") else "NOW()"
     cur.execute(
         f"""INSERT INTO {SCHEMA}.candidates
             (full_name, age, criminal_record, chronic_diseases, dispensary_record,
              notes, doc_photos, relation_photos, tickets, contract_photos, employee_name, company, created_at,
              birth_date, city, citizenship, has_inn, has_snils, relations, phone, arrival_date)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
-        (
-            body.get("fullName", ""),
-            body.get("age", ""),
-            body.get("criminalRecord", ""),
-            body.get("chronicDiseases", ""),
-            body.get("dispensaryRecord", ""),
-            body.get("notes", ""),
-            json.dumps(body.get("docPhotos", []), ensure_ascii=False),
-            json.dumps(body.get("relationPhotos", []), ensure_ascii=False),
-            json.dumps(body.get("tickets", []), ensure_ascii=False),
-            json.dumps(body.get("contractPhotos", []), ensure_ascii=False),
-            body.get("employeeName", ""),
-            body.get("company", ""),
-            body.get("createdAt"),
-            body.get("birthDate", ""),
-            body.get("city", ""),
-            body.get("citizenship", ""),
-            bool(body.get("hasInn", False)),
-            bool(body.get("hasSnils", False)),
-            body.get("relations", ""),
-            body.get("phone", ""),
-            body.get("arrivalDate", ""),
-        ),
+            VALUES ({q(body.get("fullName",""))},{q(body.get("age",""))},{q(body.get("criminalRecord",""))},{q(body.get("chronicDiseases",""))},{q(body.get("dispensaryRecord",""))},
+                    {q(body.get("notes",""))},{q(json.dumps(body.get("docPhotos",[]),ensure_ascii=False))},{q(json.dumps(body.get("relationPhotos",[]),ensure_ascii=False))},
+                    {q(json.dumps(body.get("tickets",[]),ensure_ascii=False))},{q(json.dumps(body.get("contractPhotos",[]),ensure_ascii=False))},
+                    {q(body.get("employeeName",""))},{q(body.get("company",""))},{created_at},
+                    {q(body.get("birthDate",""))},{q(body.get("city",""))},{q(body.get("citizenship",""))},
+                    {qb(body.get("hasInn",False))},{qb(body.get("hasSnils",False))},
+                    {q(body.get("relations",""))},{q(body.get("phone",""))},{q(body.get("arrivalDate",""))})
+            RETURNING *"""
     )
     row = row_to_dict(cur.fetchone(), cur)
     conn.commit()
@@ -174,35 +170,20 @@ def action_update(body, cur, conn):
     candidate_id = int(body.get("id", 0))
     cur.execute(
         f"""UPDATE {SCHEMA}.candidates SET
-            full_name=%s, age=%s, criminal_record=%s, chronic_diseases=%s,
-            dispensary_record=%s, notes=%s, doc_photos=%s, relation_photos=%s,
-            tickets=%s, contract_photos=%s, employee_name=%s, company=%s,
-            birth_date=%s, city=%s, citizenship=%s, has_inn=%s, has_snils=%s,
-            relations=%s, phone=%s, arrival_date=%s
-            WHERE id=%s RETURNING *""",
-        (
-            body.get("fullName", ""),
-            body.get("age", ""),
-            body.get("criminalRecord", ""),
-            body.get("chronicDiseases", ""),
-            body.get("dispensaryRecord", ""),
-            body.get("notes", ""),
-            json.dumps(body.get("docPhotos", []), ensure_ascii=False),
-            json.dumps(body.get("relationPhotos", []), ensure_ascii=False),
-            json.dumps(body.get("tickets", []), ensure_ascii=False),
-            json.dumps(body.get("contractPhotos", []), ensure_ascii=False),
-            body.get("employeeName", ""),
-            body.get("company", ""),
-            body.get("birthDate", ""),
-            body.get("city", ""),
-            body.get("citizenship", ""),
-            bool(body.get("hasInn", False)),
-            bool(body.get("hasSnils", False)),
-            body.get("relations", ""),
-            body.get("phone", ""),
-            body.get("arrivalDate", ""),
-            candidate_id,
-        ),
+            full_name={q(body.get("fullName",""))}, age={q(body.get("age",""))},
+            criminal_record={q(body.get("criminalRecord",""))}, chronic_diseases={q(body.get("chronicDiseases",""))},
+            dispensary_record={q(body.get("dispensaryRecord",""))}, notes={q(body.get("notes",""))},
+            doc_photos={q(json.dumps(body.get("docPhotos",[]),ensure_ascii=False))},
+            relation_photos={q(json.dumps(body.get("relationPhotos",[]),ensure_ascii=False))},
+            tickets={q(json.dumps(body.get("tickets",[]),ensure_ascii=False))},
+            contract_photos={q(json.dumps(body.get("contractPhotos",[]),ensure_ascii=False))},
+            employee_name={q(body.get("employeeName",""))}, company={q(body.get("company",""))},
+            birth_date={q(body.get("birthDate",""))}, city={q(body.get("city",""))},
+            citizenship={q(body.get("citizenship",""))},
+            has_inn={qb(body.get("hasInn",False))}, has_snils={qb(body.get("hasSnils",False))},
+            relations={q(body.get("relations",""))}, phone={q(body.get("phone",""))},
+            arrival_date={q(body.get("arrivalDate",""))}
+            WHERE id={candidate_id} RETURNING *"""
     )
     row = row_to_dict(cur.fetchone(), cur)
     conn.commit()
@@ -211,7 +192,7 @@ def action_update(body, cur, conn):
 
 def action_delete(body, cur, conn):
     candidate_id = int(body.get("id", 0))
-    cur.execute(f"DELETE FROM {SCHEMA}.candidates WHERE id=%s", (candidate_id,))
+    cur.execute(f"DELETE FROM {SCHEMA}.candidates WHERE id={candidate_id}")
     conn.commit()
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
 
@@ -247,8 +228,7 @@ def action_set_call_result(body, cur, conn):
 def action_convert_lead(body, cur, conn):
     candidate_id = int(body.get("id", 0))
     cur.execute(
-        f"UPDATE {SCHEMA}.candidates SET is_lead = false WHERE id=%s RETURNING *",
-        (candidate_id,),
+        f"UPDATE {SCHEMA}.candidates SET is_lead = false WHERE id={candidate_id} RETURNING *"
     )
     row = row_to_dict(cur.fetchone(), cur)
     conn.commit()
@@ -286,13 +266,12 @@ def action_dmp(event: dict, body: dict = None) -> dict:
                  doc_photos, relation_photos, tickets, contract_photos,
                  employee_name, company, relations, birth_date, arrival_date,
                  has_inn, has_snils, created_at, is_lead)
-                VALUES (%s,%s,%s,%s,%s,
+                VALUES ({q(full_name)},{q(phone)},{q(city)},{q(citizenship)},{q(notes)},
                         '','','','',
                         '[]','[]','[]','[]',
                         '','','','','',
-                        false, false, %s, true)
-                RETURNING id""",
-            (full_name, phone, city, citizenship, notes, date.today()),
+                        false, false, {q(str(date.today()))}, true)
+                RETURNING id"""
         )
         new_id = cur.fetchone()[0]
         conn.commit()
@@ -367,7 +346,7 @@ def action_mango(event: dict) -> dict:
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute(f"SELECT 1 FROM {SCHEMA}.candidates WHERE phone = %s LIMIT 1", (phone,))
+        cur.execute(f"SELECT 1 FROM {SCHEMA}.candidates WHERE phone = {q(phone)} LIMIT 1")
         if cur.fetchone():
             cur.close()
             return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "skipped": "exists"})}
@@ -379,13 +358,12 @@ def action_mango(event: dict) -> dict:
                  doc_photos, relation_photos, tickets, contract_photos,
                  employee_name, company, relations, birth_date, arrival_date,
                  has_inn, has_snils, created_at, is_lead)
-                VALUES ('', %s, '', '', %s,
+                VALUES ('', {q(phone)}, '', '', 'Источник: Манго Офис (звонок)',
                         '', '', '', '',
                         '[]', '[]', '[]', '[]',
                         '', '', '', '', '',
-                        false, false, %s, true)
-                RETURNING id""",
-            (phone, "Источник: Манго Офис (звонок)", date.today()),
+                        false, false, {q(str(date.today()))}, true)
+                RETURNING id"""
         )
         new_id = cur.fetchone()[0]
         conn.commit()
@@ -444,13 +422,12 @@ def action_webhook(event: dict) -> dict:
                  doc_photos, relation_photos, tickets, contract_photos,
                  employee_name, company, relations, birth_date, arrival_date,
                  has_inn, has_snils, created_at, is_lead)
-                VALUES (%s,%s,%s,%s,%s,
+                VALUES ({q(full_name)},{q(phone)},{q(city)},{q(citizenship)},{q(notes)},
                         '','','','',
                         '[]','[]','[]','[]',
                         '','','','','',
-                        false, false, %s, true)
-                RETURNING id""",
-            (full_name, phone, city, citizenship, notes, date.today()),
+                        false, false, {q(str(date.today()))}, true)
+                RETURNING id"""
         )
         new_id = cur.fetchone()[0]
         conn.commit()
@@ -480,8 +457,7 @@ def action_announcements_get(event, conn):
     cur = conn.cursor()
     if last_id:
         cur.execute(
-            f"SELECT id, author_id, author_name, message, created_at, files FROM {SCHEMA}.announcements WHERE id > %s ORDER BY id ASC",
-            (int(last_id),),
+            f"SELECT id, author_id, author_name, message, created_at, files FROM {SCHEMA}.announcements WHERE id > {int(last_id)} ORDER BY id ASC"
         )
     else:
         cur.execute(
@@ -506,8 +482,7 @@ def send_push_notifications(conn, title: str, body_text: str, exclude_user_id: i
     cur = conn.cursor()
     if exclude_user_id:
         cur.execute(
-            f"SELECT user_id, endpoint, p256dh, auth FROM {SCHEMA}.push_subscriptions WHERE user_id != %s",
-            (exclude_user_id,),
+            f"SELECT user_id, endpoint, p256dh, auth FROM {SCHEMA}.push_subscriptions WHERE user_id != {int(exclude_user_id)}"
         )
     else:
         cur.execute(f"SELECT user_id, endpoint, p256dh, auth FROM {SCHEMA}.push_subscriptions")
@@ -529,7 +504,7 @@ def send_push_notifications(conn, title: str, body_text: str, exclude_user_id: i
     if dead_endpoints:
         cur2 = conn.cursor()
         for ep in dead_endpoints:
-            cur2.execute(f"DELETE FROM {SCHEMA}.push_subscriptions WHERE endpoint = %s", (ep,))
+            cur2.execute(f"DELETE FROM {SCHEMA}.push_subscriptions WHERE endpoint = {q(ep)}")
         conn.commit()
         cur2.close()
 
@@ -545,9 +520,8 @@ def action_push_subscribe(body, user, conn):
     cur = conn.cursor()
     cur.execute(
         f"""INSERT INTO {SCHEMA}.push_subscriptions (user_id, endpoint, p256dh, auth)
-            VALUES (%s,%s,%s,%s)
-            ON CONFLICT (user_id, endpoint) DO UPDATE SET p256dh=EXCLUDED.p256dh, auth=EXCLUDED.auth""",
-        (user["id"], endpoint, p256dh, auth_key),
+            VALUES ({int(user["id"])},{q(endpoint)},{q(p256dh)},{q(auth_key)})
+            ON CONFLICT (user_id, endpoint) DO UPDATE SET p256dh=EXCLUDED.p256dh, auth=EXCLUDED.auth"""
     )
     conn.commit()
     cur.close()
@@ -568,8 +542,7 @@ def action_announcements_post(body, user, conn):
         return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "message or files required"})}
     cur = conn.cursor()
     cur.execute(
-        f"INSERT INTO {SCHEMA}.announcements (author_id, author_name, message, files) VALUES (%s,%s,%s,%s) RETURNING id, created_at",
-        (user["id"], user["fullName"], message, json.dumps(files)),
+        f"INSERT INTO {SCHEMA}.announcements (author_id, author_name, message, files) VALUES ({int(user['id'])},{q(user['fullName'])},{q(message)},{q(json.dumps(files))}) RETURNING id, created_at"
     )
     row = cur.fetchone()
     conn.commit()
@@ -589,7 +562,7 @@ def action_announcements_delete(query, user, conn):
     if not ann_id:
         return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "ann_id required"})}
     cur = conn.cursor()
-    cur.execute(f"DELETE FROM {SCHEMA}.announcements WHERE id=%s", (int(ann_id),))
+    cur.execute(f"DELETE FROM {SCHEMA}.announcements WHERE id={int(ann_id)}")
     conn.commit()
     cur.close()
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
@@ -642,8 +615,7 @@ def handler(event: dict, context) -> dict:
                 cur.execute(f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = true ORDER BY created_at DESC, id DESC")
             elif session_user and session_user["role"] == "employee":
                 cur.execute(
-                    f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = false AND employee_name = %s ORDER BY created_at DESC, id DESC",
-                    (session_user["fullName"],),
+                    f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = false AND employee_name = {q(session_user['fullName'])} ORDER BY created_at DESC, id DESC"
                 )
             else:
                 cur.execute(f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = false ORDER BY created_at DESC, id DESC")
