@@ -31,6 +31,7 @@ interface Lead {
   createdAt: string;
   called: boolean;
   callResult: string;
+  callComment: string;
 }
 
 interface ApiLead {
@@ -43,6 +44,7 @@ interface ApiLead {
   created_at: string;
   called: boolean;
   call_result: string;
+  call_comment: string;
 }
 
 function fromApi(r: ApiLead): Lead {
@@ -56,6 +58,7 @@ function fromApi(r: ApiLead): Lead {
     createdAt: r.created_at || "",
     called: r.called || false,
     callResult: r.call_result || "",
+    callComment: r.call_comment || "",
   };
 }
 
@@ -90,6 +93,8 @@ export default function Leads() {
   const [showUncalled, setShowUncalled] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [convertingId, setConvertingId] = useState<number | null>(null);
+  const [commentEditId, setCommentEditId] = useState<number | null>(null);
+  const [commentDraft, setCommentDraft] = useState("");
   const { unreadCount } = useUnread(token, user?.id);
   useBadge(unreadCount);
 
@@ -148,12 +153,25 @@ export default function Leads() {
     });
   };
 
-  const handleSetCallResult = async (id: number, result: string) => {
-    setLeads((prev) => prev.map((l) => l.id === id ? { ...l, callResult: result, called: result !== "" } : l));
+  const handleSetCallResult = async (id: number, result: string, comment?: string) => {
+    const lead = leads.find((l) => l.id === id);
+    const newComment = comment !== undefined ? comment : (lead?.callComment || "");
+    setLeads((prev) => prev.map((l) => l.id === id ? { ...l, callResult: result, callComment: newComment, called: result !== "" } : l));
     await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
-      body: JSON.stringify({ action: "set_call_result", id, result }),
+      body: JSON.stringify({ action: "set_call_result", id, result, comment: newComment }),
+    });
+  };
+
+  const handleSaveComment = async (id: number, comment: string) => {
+    const lead = leads.find((l) => l.id === id);
+    setLeads((prev) => prev.map((l) => l.id === id ? { ...l, callComment: comment } : l));
+    setCommentEditId(null);
+    await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+      body: JSON.stringify({ action: "set_call_result", id, result: lead?.callResult || "", comment }),
     });
   };
 
@@ -178,6 +196,7 @@ export default function Leads() {
       "Дата заявки": l.createdAt ? new Date(l.createdAt).toLocaleString("ru-RU") : "",
       "Прозвонен": l.called ? "Да" : "Нет",
       "Результат звонка": l.callResult,
+      "Комментарий": l.callComment,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -291,7 +310,7 @@ export default function Leads() {
           <table className="w-full text-xs border-collapse" style={{ minWidth: "820px" }}>
             <thead>
               <tr style={{ background: "hsl(217, 60%, 22%)" }}>
-                {["№", "ФИО", "Телефон", "Город", "Гражданство", "Примечание", "Дата", "Результат", ""].map((h, i) => (
+                {["№", "ФИО", "Телефон", "Город", "Гражданство", "Примечание", "Дата", "Результат", "Комментарий", ""].map((h, i) => (
                   <th key={i} className="text-left px-3 py-2 font-medium text-xs tracking-wide text-white/80 border-b border-white/10 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -299,7 +318,7 @@ export default function Leads() {
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="text-center py-20 text-muted-foreground">
+                  <td colSpan={10} className="text-center py-20 text-muted-foreground">
                     <Icon name="Inbox" size={36} className="mx-auto mb-3 opacity-25" />
                     <div className="text-sm">Нет лидов. Они появятся здесь после заявок с сайта.</div>
                   </td>
@@ -339,6 +358,41 @@ export default function Leads() {
                         <option key={r.value} value={r.value}>{r.label}</option>
                       ))}
                     </select>
+                  </td>
+                  <td className="px-3 py-2 max-w-[180px]">
+                    {commentEditId === l.id ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          autoFocus
+                          value={commentDraft}
+                          onChange={(e) => setCommentDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveComment(l.id, commentDraft);
+                            if (e.key === "Escape") setCommentEditId(null);
+                          }}
+                          className="text-[11px] border border-blue-400 rounded px-1.5 py-0.5 w-full focus:outline-none"
+                          placeholder="Комментарий..."
+                        />
+                        <button onClick={() => handleSaveComment(l.id, commentDraft)} className="text-blue-600 hover:text-blue-800 shrink-0" title="Сохранить">
+                          <Icon name="Check" size={13} />
+                        </button>
+                        <button onClick={() => setCommentEditId(null)} className="text-muted-foreground hover:text-foreground shrink-0" title="Отмена">
+                          <Icon name="X" size={13} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setCommentEditId(l.id); setCommentDraft(l.callComment || ""); }}
+                        className="text-left w-full truncate text-[11px] text-muted-foreground hover:text-foreground group/comment flex items-center gap-1"
+                        title={l.callComment || "Добавить комментарий"}
+                      >
+                        {l.callComment
+                          ? <span className="truncate text-foreground/80">{l.callComment}</span>
+                          : <span className="opacity-0 group-hover/comment:opacity-60 italic">+ добавить</span>
+                        }
+                        <Icon name="Pencil" size={10} className="shrink-0 opacity-0 group-hover/comment:opacity-50" />
+                      </button>
+                    )}
                   </td>
                   <td className="px-3 py-2 sticky right-0 bg-white group-hover:bg-amber-50/40">
                     <div className="flex items-center gap-0.5">

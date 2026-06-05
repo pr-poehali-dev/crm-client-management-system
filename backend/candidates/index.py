@@ -211,18 +211,19 @@ def action_toggle_called(body, cur, conn):
 
 
 def action_set_call_result(body, cur, conn):
-    """Сохранение результата звонка по лиду."""
+    """Сохранение результата звонка и комментария по лиду."""
     candidate_id = int(body.get("id", 0))
-    result = str(body.get("result", "")).replace("'", "''")
+    result = str(body.get("result", ""))
+    comment = str(body.get("comment", ""))
     called = "true" if result != "" else "false"
     cur.execute(
-        f"UPDATE {SCHEMA}.candidates SET call_result='{result}', called={called} WHERE id={candidate_id} RETURNING id, call_result, called"
+        f"UPDATE {SCHEMA}.candidates SET call_result={q(result)}, call_comment={q(comment)}, called={called} WHERE id={candidate_id} RETURNING id, call_result, call_comment, called"
     )
     row = cur.fetchone()
     if not row:
         return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Not found"})}
     conn.commit()
-    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"id": str(row[0]), "call_result": row[1], "called": row[2]})}
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"id": str(row[0]), "call_result": row[1], "call_comment": row[2], "called": row[3]})}
 
 
 def action_convert_lead(body, cur, conn):
