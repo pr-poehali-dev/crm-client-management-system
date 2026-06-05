@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useUnread } from "@/hooks/useUnread";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -90,7 +90,6 @@ export default function Leads() {
   const [showUncalled, setShowUncalled] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [convertingId, setConvertingId] = useState<number | null>(null);
-  const [resultMenuId, setResultMenuId] = useState<number | null>(null);
   const { unreadCount } = useUnread(token, user?.id);
   useBadge(unreadCount);
 
@@ -190,17 +189,7 @@ export default function Leads() {
 
   const detail = detailId !== null ? leads.find((l) => l.id === detailId) : null;
 
-  useEffect(() => {
-    if (resultMenuId === null) return;
-    const close = () => setResultMenuId(null);
-    const timer = setTimeout(() => {
-      document.addEventListener("mousedown", close);
-    }, 0);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener("mousedown", close);
-    };
-  }, [resultMenuId]);
+
 
   return (
     <div className="min-h-screen flex flex-col bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
@@ -340,40 +329,17 @@ export default function Leads() {
                     <div className="truncate text-muted-foreground">{l.notes || "—"}</div>
                   </td>
                   <td className="px-3 py-2 font-mono text-muted-foreground whitespace-nowrap">{l.createdAt ? new Date(l.createdAt).toLocaleDateString("ru-RU") : "—"}</td>
-                  <td className="px-3 py-2 relative" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setResultMenuId(resultMenuId === l.id ? null : l.id); /* stop to prevent immediate close */ }}
-                      className={`flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border transition-colors ${
-                        l.callResult
-                          ? CALL_RESULTS.find((x) => x.value === l.callResult)?.color || "text-muted-foreground bg-muted/30 border-border"
-                          : "text-muted-foreground bg-muted/30 border-border hover:border-blue-300 hover:text-blue-600"
-                      }`}
-                      title="Результат звонка"
+                  <td className="px-3 py-2">
+                    <select
+                      value={l.callResult || ""}
+                      onChange={(e) => handleSetCallResult(l.id, e.target.value)}
+                      className="text-[11px] border border-border rounded px-1.5 py-0.5 bg-white cursor-pointer focus:outline-none focus:border-blue-400"
                     >
-                      {l.callResult || "Выбрать"}
-                      <Icon name="ChevronDown" size={10} />
-                    </button>
-                    {resultMenuId === l.id && (
-                      <div className="absolute z-50 left-0 top-full mt-1 bg-white border border-border rounded shadow-lg min-w-[140px] py-1">
-                        {CALL_RESULTS.map((r) => (
-                          <button
-                            key={r.value}
-                            onClick={() => handleSetCallResult(l.id, r.value)}
-                            className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors ${l.callResult === r.value ? "font-semibold" : ""}`}
-                          >
-                            <span className={`inline-block px-1.5 py-0.5 rounded border text-[10px] ${r.color}`}>{r.label}</span>
-                          </button>
-                        ))}
-                        {l.callResult && (
-                          <button
-                            onClick={() => handleSetCallResult(l.id, "")}
-                            className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/50 border-t border-border mt-1 transition-colors"
-                          >
-                            Сбросить
-                          </button>
-                        )}
-                      </div>
-                    )}
+                      <option value="">Выбрать</option>
+                      {CALL_RESULTS.map((r) => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
+                    </select>
                   </td>
                   <td className="px-3 py-2 sticky right-0 bg-white group-hover:bg-amber-50/40">
                     <div className="flex items-center gap-0.5">
