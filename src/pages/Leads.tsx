@@ -193,8 +193,13 @@ export default function Leads() {
   useEffect(() => {
     if (resultMenuId === null) return;
     const close = () => setResultMenuId(null);
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
+    const timer = setTimeout(() => {
+      document.addEventListener("mousedown", close);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("mousedown", close);
+    };
   }, [resultMenuId]);
 
   return (
