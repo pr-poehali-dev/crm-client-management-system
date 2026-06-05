@@ -331,7 +331,7 @@ export default function Leads() {
                   <td className="px-3 py-2 font-mono text-muted-foreground whitespace-nowrap">{l.createdAt ? new Date(l.createdAt).toLocaleDateString("ru-RU") : "—"}</td>
                   <td className="px-3 py-2 relative" onClick={(e) => e.stopPropagation()}>
                     <button
-                      onClick={() => setResultMenuId(resultMenuId === l.id ? null : l.id)}
+                      onClick={(e) => { e.stopPropagation(); setResultMenuId(resultMenuId === l.id ? null : l.id); }}
                       className={`flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border transition-colors ${
                         l.callResult
                           ? CALL_RESULTS.find((x) => x.value === l.callResult)?.color || "text-muted-foreground bg-muted/30 border-border"
