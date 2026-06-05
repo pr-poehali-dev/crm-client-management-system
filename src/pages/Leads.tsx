@@ -190,9 +190,15 @@ export default function Leads() {
 
   const detail = detailId !== null ? leads.find((l) => l.id === detailId) : null;
 
+  useEffect(() => {
+    if (resultMenuId === null) return;
+    const close = () => setResultMenuId(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [resultMenuId]);
+
   return (
-    <div className="min-h-screen flex flex-col bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}
-      onClick={() => setResultMenuId(null)}>
+    <div className="min-h-screen flex flex-col bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
       {/* Header */}
       <header className="text-white px-6 py-4 flex items-center justify-between shadow-lg" style={{ background: "hsl(217, 60%, 18%)" }}>
         <div className="flex items-center gap-3">
@@ -331,7 +337,7 @@ export default function Leads() {
                   <td className="px-3 py-2 font-mono text-muted-foreground whitespace-nowrap">{l.createdAt ? new Date(l.createdAt).toLocaleDateString("ru-RU") : "—"}</td>
                   <td className="px-3 py-2 relative" onClick={(e) => e.stopPropagation()}>
                     <button
-                      onClick={(e) => { e.stopPropagation(); setResultMenuId(resultMenuId === l.id ? null : l.id); }}
+                      onClick={(e) => { e.stopPropagation(); setResultMenuId(resultMenuId === l.id ? null : l.id); /* stop to prevent immediate close */ }}
                       className={`flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border transition-colors ${
                         l.callResult
                           ? CALL_RESULTS.find((x) => x.value === l.callResult)?.color || "text-muted-foreground bg-muted/30 border-border"
