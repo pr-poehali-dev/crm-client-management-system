@@ -351,6 +351,10 @@ export default function Leads() {
               </span>
             )}
           </button>
+          <button onClick={() => navigate("/my-leads")} className="flex items-center gap-1 text-amber-300 hover:text-amber-200 text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Мои лиды">
+            <Icon name="UserCheck" size={14} />
+            <span className="hidden md:inline">Мои лиды</span>
+          </button>
           <button onClick={() => navigate("/help")} className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Инструкция">
             <Icon name="BookOpen" size={14} />
             <span className="hidden md:inline">Инструкция</span>

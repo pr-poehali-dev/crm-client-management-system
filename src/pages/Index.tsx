@@ -442,6 +442,10 @@ export default function Index() {
               </span>
             )}
           </button>
+          <button onClick={() => navigate("/my-leads")} className="flex items-center gap-1 text-amber-300 hover:text-amber-200 text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Мои лиды">
+            <Icon name="UserCheck" size={14} />
+            <span className="hidden md:inline">Мои лиды</span>
+          </button>
           {isAdmin && (
             <button onClick={() => navigate("/users")} className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors" title="Пользователи">
               <Icon name="UserCog" size={14} />
