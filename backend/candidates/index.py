@@ -211,19 +211,47 @@ def action_toggle_called(body, cur, conn):
 
 
 def action_set_call_result(body, cur, conn):
-    """Сохранение результата звонка и комментария по лиду."""
+    """Сохранение результата звонка, комментария и ФИО сотрудника по лиду."""
     candidate_id = int(body.get("id", 0))
     result = str(body.get("result", ""))
     comment = str(body.get("comment", ""))
+    assigned_to = str(body.get("assignedTo", ""))
     called = "true" if result != "" else "false"
     cur.execute(
-        f"UPDATE {SCHEMA}.candidates SET call_result={q(result)}, call_comment={q(comment)}, called={called} WHERE id={candidate_id} RETURNING id, call_result, call_comment, called"
+        f"UPDATE {SCHEMA}.candidates SET call_result={q(result)}, call_comment={q(comment)}, called={called}, assigned_to={q(assigned_to)} WHERE id={candidate_id} RETURNING id, call_result, call_comment, called, assigned_to"
     )
     row = cur.fetchone()
     if not row:
         return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Not found"})}
     conn.commit()
-    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"id": str(row[0]), "call_result": row[1], "call_comment": row[2], "called": row[3]})}
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"id": str(row[0]), "call_result": row[1], "call_comment": row[2], "called": row[3], "assigned_to": row[4]})}
+
+
+def action_get_my_leads(params, cur):
+    """Получение лидов сотрудника по его ФИО."""
+    name = (params.get("name") or "").strip()
+    if not name:
+        return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "name required"})}
+    cur.execute(
+        f"SELECT id, full_name, phone, city, citizenship, notes, created_at, call_result, call_comment, assigned_to "
+        f"FROM {SCHEMA}.candidates WHERE is_lead=true AND assigned_to={q(name)} ORDER BY created_at DESC"
+    )
+    rows = cur.fetchall()
+    result = []
+    for row in rows:
+        result.append({
+            "id": str(row[0]),
+            "fullName": row[1] or "",
+            "phone": row[2] or "",
+            "city": row[3] or "",
+            "citizenship": row[4] or "",
+            "notes": row[5] or "",
+            "createdAt": str(row[6]),
+            "callResult": row[7] or "",
+            "callComment": row[8] or "",
+            "assignedTo": row[9] or "",
+        })
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps(result, ensure_ascii=False)}
 
 
 def action_convert_lead(body, cur, conn):
@@ -592,6 +620,15 @@ def handler(event: dict, context) -> dict:
     query_params = event.get("queryStringParameters") or {}
     if query_params.get("mode") == "vapid_key":
         return action_push_vapid_key()
+
+    # GET — лиды конкретного сотрудника (без авторизации, по имени)
+    if query_params.get("mode") == "my_leads":
+        conn = get_conn()
+        try:
+            cur = conn.cursor()
+            return action_get_my_leads(query_params, cur)
+        finally:
+            conn.close()
 
     # GET — объявления
     if query_params.get("mode") == "announcements":

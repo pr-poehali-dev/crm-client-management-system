@@ -32,6 +32,7 @@ interface Lead {
   called: boolean;
   callResult: string;
   callComment: string;
+  assignedTo: string;
 }
 
 interface ApiLead {
@@ -45,6 +46,7 @@ interface ApiLead {
   called: boolean;
   call_result: string;
   call_comment: string;
+  assigned_to: string;
 }
 
 function fromApi(r: ApiLead): Lead {
@@ -59,6 +61,7 @@ function fromApi(r: ApiLead): Lead {
     called: r.called || false,
     callResult: r.call_result || "",
     callComment: r.call_comment || "",
+    assignedTo: r.assigned_to || "",
   };
 }
 
@@ -95,6 +98,8 @@ export default function Leads() {
   const [convertingId, setConvertingId] = useState<number | null>(null);
   const [commentEditId, setCommentEditId] = useState<number | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
+  const [assignPopup, setAssignPopup] = useState<{ id: number; result: string } | null>(null);
+  const [assignName, setAssignName] = useState("");
   const { unreadCount } = useUnread(token, user?.id);
   useBadge(unreadCount);
 
@@ -153,15 +158,33 @@ export default function Leads() {
     });
   };
 
-  const handleSetCallResult = async (id: number, result: string, comment?: string) => {
+  const RESULTS_NEED_ASSIGN = ["Недозвон", "Занято", "Заинтересован", "Перезвонит"];
+
+  const handleSetCallResult = async (id: number, result: string, comment?: string, assignedTo?: string) => {
     const lead = leads.find((l) => l.id === id);
     const newComment = comment !== undefined ? comment : (lead?.callComment || "");
-    setLeads((prev) => prev.map((l) => l.id === id ? { ...l, callResult: result, callComment: newComment, called: result !== "" } : l));
+    // Если результат требует ФИО — и оно ещё не задано, показываем попап
+    if (RESULTS_NEED_ASSIGN.includes(result) && !assignedTo) {
+      setAssignPopup({ id, result });
+      setAssignName(lead?.assignedTo || "");
+      return;
+    }
+    const finalAssigned = assignedTo ?? (lead?.assignedTo || "");
+    setLeads((prev) => prev.map((l) => l.id === id ? { ...l, callResult: result, callComment: newComment, called: result !== "", assignedTo: finalAssigned } : l));
     await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
-      body: JSON.stringify({ action: "set_call_result", id, result, comment: newComment }),
+      body: JSON.stringify({ action: "set_call_result", id, result, comment: newComment, assignedTo: finalAssigned }),
     });
+  };
+
+  const handleAssignConfirm = async () => {
+    if (!assignPopup) return;
+    const name = assignName.trim();
+    if (!name) return;
+    await handleSetCallResult(assignPopup.id, assignPopup.result, undefined, name);
+    setAssignPopup(null);
+    setAssignName("");
   };
 
   const handleSaveComment = async (id: number, comment: string) => {
@@ -215,6 +238,39 @@ export default function Leads() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+
+      {/* Assign employee popup */}
+      {assignPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setAssignPopup(null)}>
+          <div className="bg-white border border-blue-300 rounded-xl shadow-2xl p-6 flex flex-col gap-4 w-[380px] max-w-[95vw]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-bold text-foreground">Укажите ваше ФИО</div>
+              <button onClick={() => setAssignPopup(null)} className="text-muted-foreground hover:text-foreground"><Icon name="X" size={16} /></button>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Лид будет закреплён за вами. Вы сможете найти его в своём личном списке.
+            </div>
+            <input
+              autoFocus
+              value={assignName}
+              onChange={(e) => setAssignName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleAssignConfirm(); if (e.key === "Escape") setAssignPopup(null); }}
+              placeholder="Иванов Иван Иванович"
+              className="border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+            />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setAssignPopup(null)} className="text-xs px-3 py-1.5 rounded border border-border hover:bg-muted transition-colors">Отмена</button>
+              <button
+                onClick={handleAssignConfirm}
+                disabled={!assignName.trim()}
+                className="text-xs px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white transition-colors"
+              >
+                Подтвердить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Comment popup */}
       {commentLead && (

@@ -78,6 +78,18 @@
       },
       "expectedStatus": 200,
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET my_leads — без имени возвращает 400",
+      "method": "GET",
+      "path": "/?mode=my_leads",
+      "expectedStatus": 400
+    },
+    {
+      "name": "GET my_leads — по имени возвращает список",
+      "method": "GET",
+      "path": "/?mode=my_leads&name=Тестов",
+      "expectedStatus": 200
     }
   ]
 }
