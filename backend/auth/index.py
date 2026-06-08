@@ -42,7 +42,7 @@ def get_session_user(conn, session_id: str):
         return None
     cur = conn.cursor()
     cur.execute(
-        f"SELECT u.id, u.login, u.full_name, u.role FROM {SCHEMA}.sessions s "
+        f"SELECT u.id, u.login, u.full_name, u.role, u.mango_verified FROM {SCHEMA}.sessions s "
         f"JOIN {SCHEMA}.users u ON u.id = s.user_id "
         f"WHERE s.token = '{esc(session_id)}' AND s.expires_at > NOW() AND u.is_active = true"
     )
@@ -50,7 +50,7 @@ def get_session_user(conn, session_id: str):
     cur.close()
     if not row:
         return None
-    return {"id": row[0], "login": row[1], "fullName": row[2], "role": row[3]}
+    return {"id": row[0], "login": row[1], "fullName": row[2], "role": row[3], "mangoVerified": row[4]}
 
 
 def action_login(body, conn):
@@ -86,7 +86,13 @@ def action_login(body, conn):
     conn.commit()
     cur.close()
 
-    return ok({"token": token, "user": {"id": user_id, "login": login, "fullName": full_name, "role": role}})
+    cur2 = conn.cursor()
+    cur2.execute(f"SELECT mango_verified FROM {SCHEMA}.users WHERE id = {user_id}")
+    mango_row = cur2.fetchone()
+    cur2.close()
+    mango_verified = mango_row[0] if mango_row else False
+
+    return ok({"token": token, "user": {"id": user_id, "login": login, "fullName": full_name, "role": role, "mangoVerified": mango_verified}})
 
 
 def action_me(headers, conn):
@@ -113,12 +119,65 @@ def action_list_users(headers, conn):
         return err("Нет доступа", 403)
     cur = conn.cursor()
     cur.execute(
-        f"SELECT id, login, full_name, role, created_at, is_active FROM {SCHEMA}.users "
+        f"SELECT id, login, full_name, role, created_at, is_active, mango_verified FROM {SCHEMA}.users "
         f"WHERE login NOT LIKE 'deleted_%' ORDER BY id"
     )
-    rows = [{"id": r[0], "login": r[1], "fullName": r[2], "role": r[3], "createdAt": str(r[4]), "isActive": r[5]} for r in cur.fetchall()]
+    rows = [{"id": r[0], "login": r[1], "fullName": r[2], "role": r[3], "createdAt": str(r[4]), "isActive": r[5], "mangoVerified": r[6]} for r in cur.fetchall()]
     cur.close()
     return ok({"users": rows})
+
+
+def action_verify_mango(body, headers, conn):
+    """Верификация через Манго Офис: проверяет логин/пароль через API и сохраняет статус."""
+    import urllib.request
+    import urllib.parse
+    import hashlib
+
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user:
+        return err("Не авторизован", 401)
+
+    mango_login = (body.get("mangoLogin") or "").strip()
+    mango_password = (body.get("mangoPassword") or "").strip()
+
+    if not mango_login or not mango_password:
+        return err("Введите логин и пароль Манго Офис")
+
+    api_key = os.environ.get("MANGO_API_KEY", "")
+    api_salt = os.environ.get("MANGO_API_SALT", "")
+
+    if not api_key or not api_salt:
+        return err("Манго Офис не настроен. Обратитесь к администратору.", 500)
+
+    sign = hashlib.sha256((api_key + api_salt).encode()).hexdigest()
+    params = {
+        "vpbx_api_key": api_key,
+        "sign": sign,
+        "json": json.dumps({"extension": mango_login, "password": mango_password}, ensure_ascii=False)
+    }
+    data = urllib.parse.urlencode(params).encode()
+
+    try:
+        req = urllib.request.Request(
+            "https://app.mango-office.ru/vpbx/commands/operator/login",
+            data=data,
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = json.loads(resp.read().decode())
+    except Exception as e:
+        return err(f"Ошибка проверки Манго Офис: {str(e)}", 502)
+
+    success = str(result.get("result", "")) == "1"
+
+    if success:
+        cur = conn.cursor()
+        cur.execute(f"UPDATE {SCHEMA}.users SET mango_verified = true WHERE id = {user['id']}")
+        conn.commit()
+        cur.close()
+        return ok({"ok": True, "mangoVerified": True})
+    else:
+        return err("Неверный логин или пароль Манго Офис. Проверьте данные и попробуйте снова.", 401)
 
 
 def action_create_user(body, headers, conn):
@@ -241,6 +300,8 @@ def handler(event: dict, context) -> dict:
             return action_change_password(body, headers, conn)
         if action == "change_own_password":
             return action_change_own_password(body, headers, conn)
+        if action == "verify_mango":
+            return action_verify_mango(body, headers, conn)
         return err(f"Unknown action: {action}")
     finally:
         conn.close()

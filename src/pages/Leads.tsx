@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import func2url from "../../backend/func2url.json";
 import * as XLSX from "xlsx";
 import { useBadge } from "@/hooks/useBadge";
+import MangoVerifyModal from "@/components/MangoVerifyModal";
 
 const API = (func2url as Record<string, string>)["candidates"];
 
@@ -86,6 +87,7 @@ function CallResultBadge({ result }: { result: string }) {
 
 export default function Leads() {
   const { user, logout, token } = useAuth();
+  const [mangoModalOpen, setMangoModalOpen] = useState(false);
   const navigate = useNavigate();
   const isAdmin = user?.role === "admin";
 
@@ -285,7 +287,7 @@ export default function Leads() {
                 <Icon name="X" size={16} />
               </button>
             </div>
-            <div className="text-xs text-muted-foreground">{commentLead.fullName || "Без имени"} · {commentLead.phone || ""}</div>
+            <div className="text-xs text-muted-foreground">{commentLead.fullName || "Без имени"}{user?.mangoVerified && commentLead.phone ? ` · ${commentLead.phone}` : ""}</div>
             <textarea
               autoFocus
               value={commentDraft}
@@ -435,17 +437,28 @@ export default function Leads() {
                   <td className="px-3 py-2 text-muted-foreground font-mono">{idx + 1}</td>
                   <td className="px-3 py-2 font-semibold whitespace-nowrap max-w-[160px] truncate">{l.fullName || <span className="text-muted-foreground italic">Без имени</span>}</td>
                   <td className="px-3 py-2 whitespace-nowrap">
-                    {l.phone ? (
-                      <a
-                        href={`tel:${l.phone}`}
-                        className="font-mono text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-                        title="Позвонить"
-                        onClick={(e) => e.stopPropagation()}
+                    {user?.mangoVerified ? (
+                      l.phone ? (
+                        <a
+                          href={`tel:${l.phone}`}
+                          className="font-mono text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                          title="Позвонить"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Icon name="Phone" size={11} />
+                          {l.phone}
+                        </a>
+                      ) : <span className="text-muted-foreground">—</span>
+                    ) : (
+                      <button
+                        className="text-xs text-muted-foreground flex items-center gap-1 hover:text-primary transition-colors"
+                        onClick={(e) => { e.stopPropagation(); setMangoModalOpen(true); }}
+                        title="Подключить Манго Офис для просмотра номера"
                       >
-                        <Icon name="Phone" size={11} />
-                        {l.phone}
-                      </a>
-                    ) : <span className="text-muted-foreground">—</span>}
+                        <Icon name="Lock" size={11} />
+                        Скрыт
+                      </button>
+                    )}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">{l.city || <span className="text-muted-foreground">—</span>}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{l.citizenship || <span className="text-muted-foreground">—</span>}</td>
@@ -525,12 +538,19 @@ export default function Leads() {
                   <InfoRow label="ФИО" value={detail.fullName} />
                   <div>
                     <div className="text-xs text-muted-foreground font-medium mb-0.5">Телефон</div>
-                    {detail.phone ? (
-                      <a href={`tel:${detail.phone}`} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-                        <Icon name="Phone" size={13} />
-                        {detail.phone}
-                      </a>
-                    ) : <div className="text-sm">—</div>}
+                    {user?.mangoVerified ? (
+                      detail.phone ? (
+                        <a href={`tel:${detail.phone}`} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+                          <Icon name="Phone" size={13} />
+                          {detail.phone}
+                        </a>
+                      ) : <div className="text-sm">—</div>
+                    ) : (
+                      <button className="text-sm text-muted-foreground flex items-center gap-1 hover:text-primary transition-colors" onClick={() => setMangoModalOpen(true)}>
+                        <Icon name="Lock" size={13} />
+                        Подключить Манго Офис
+                      </button>
+                    )}
                   </div>
                   <InfoRow label="Город" value={detail.city} />
                   <InfoRow label="Гражданство" value={detail.citizenship} />
@@ -589,6 +609,8 @@ export default function Leads() {
           )}
         </DialogContent>
       </Dialog>
+
+      <MangoVerifyModal open={mangoModalOpen} onClose={() => setMangoModalOpen(false)} />
     </div>
   );
 }

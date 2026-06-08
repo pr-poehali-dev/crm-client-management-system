@@ -1,5 +1,7 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
+import { useAuth } from "@/contexts/AuthContext";
+import MangoVerifyModal from "@/components/MangoVerifyModal";
 import func2url from "../../backend/func2url.json";
 
 const API = (func2url as Record<string, string>)["candidates"];
@@ -37,6 +39,8 @@ function CallResultBadge({ result }: { result: string }) {
 }
 
 export default function MyLeads() {
+  const { user } = useAuth();
+  const [mangoModalOpen, setMangoModalOpen] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [activeName, setActiveName] = useState("");
   const [leads, setLeads] = useState<MyLead[]>([]);
@@ -116,10 +120,17 @@ export default function MyLeads() {
                         <div className="font-semibold text-sm text-foreground">{lead.fullName || "Без имени"}</div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           {lead.phone && (
-                            <a href={`tel:${lead.phone}`} className="flex items-center gap-1 hover:text-blue-600 transition-colors">
-                              <Icon name="Phone" size={11} />
-                              {lead.phone}
-                            </a>
+                            user?.mangoVerified ? (
+                              <a href={`tel:${lead.phone}`} className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                                <Icon name="Phone" size={11} />
+                                {lead.phone}
+                              </a>
+                            ) : (
+                              <button className="flex items-center gap-1 hover:text-primary transition-colors" onClick={() => setMangoModalOpen(true)}>
+                                <Icon name="Lock" size={11} />
+                                Скрыт
+                              </button>
+                            )
                           )}
                           {lead.city && (
                             <span className="flex items-center gap-1">
@@ -157,6 +168,7 @@ export default function MyLeads() {
           </div>
         )}
       </div>
+      <MangoVerifyModal open={mangoModalOpen} onClose={() => setMangoModalOpen(false)} />
     </div>
   );
 }
