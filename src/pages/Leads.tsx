@@ -456,7 +456,20 @@ export default function Leads() {
                   </td>
                   <td className="px-3 py-2 font-mono text-muted-foreground whitespace-nowrap">{l.createdAt ? new Date(l.createdAt).toLocaleDateString("ru-RU") : "—"}</td>
                   <td className="px-3 py-2">
-                    <CallResultBadge result={l.callResult} />
+                    <select
+                      value={l.callResult || ""}
+                      onChange={(e) => handleSetCallResult(l.id, e.target.value)}
+                      className="text-[11px] rounded px-1.5 py-0.5 border cursor-pointer focus:outline-none font-medium"
+                      style={(() => {
+                        const r = CALL_RESULTS.find((r) => r.value === l.callResult);
+                        return r ? r.color : { color: "#888", borderColor: "#e2e8f0", background: "white" };
+                      })()}
+                    >
+                      <option value="">Выбрать</option>
+                      {CALL_RESULTS.map((r) => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
+                    </select>
                   </td>
                   <td className="px-3 py-2 max-w-[180px] relative">
                     <button
