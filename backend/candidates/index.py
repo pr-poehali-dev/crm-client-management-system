@@ -1,4 +1,4 @@
-import base64  # noqa
+import base64
 import json
 import mimetypes
 import os
