@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import func2url from "../../backend/func2url.json";
 import * as XLSX from "xlsx";
 import { useBadge } from "@/hooks/useBadge";
-import MangoVerifyModal from "@/components/MangoVerifyModal";
+
 
 const API = (func2url as Record<string, string>)["candidates"];
 
@@ -87,7 +87,6 @@ function CallResultBadge({ result }: { result: string }) {
 
 export default function Leads() {
   const { user, logout, token } = useAuth();
-  const [mangoModalOpen, setMangoModalOpen] = useState(false);
   const navigate = useNavigate();
   const isAdmin = user?.role === "admin";
 
@@ -450,14 +449,10 @@ export default function Leads() {
                         </a>
                       ) : <span className="text-muted-foreground">—</span>
                     ) : (
-                      <button
-                        className="text-xs text-muted-foreground flex items-center gap-1 hover:text-primary transition-colors"
-                        onClick={(e) => { e.stopPropagation(); setMangoModalOpen(true); }}
-                        title="Подключить Манго Офис для просмотра номера"
-                      >
+                      <span className="text-muted-foreground flex items-center gap-1">
                         <Icon name="Lock" size={11} />
                         Скрыт
-                      </button>
+                      </span>
                     )}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">{l.city || <span className="text-muted-foreground">—</span>}</td>
@@ -546,10 +541,10 @@ export default function Leads() {
                         </a>
                       ) : <div className="text-sm">—</div>
                     ) : (
-                      <button className="text-sm text-muted-foreground flex items-center gap-1 hover:text-primary transition-colors" onClick={() => setMangoModalOpen(true)}>
+                      <div className="text-sm text-muted-foreground flex items-center gap-1">
                         <Icon name="Lock" size={13} />
-                        Подключить Манго Офис
-                      </button>
+                        Скрыт
+                      </div>
                     )}
                   </div>
                   <InfoRow label="Город" value={detail.city} />
@@ -610,7 +605,6 @@ export default function Leads() {
         </DialogContent>
       </Dialog>
 
-      <MangoVerifyModal open={mangoModalOpen} onClose={() => setMangoModalOpen(false)} />
     </div>
   );
 }

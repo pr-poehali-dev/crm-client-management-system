@@ -18,7 +18,6 @@ interface AuthContextValue {
   loading: boolean;
   login: (login: string, password: string) => Promise<string | null>;
   logout: () => Promise<void>;
-  verifyMango: (mangoLogin: string, mangoPassword: string) => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -82,23 +81,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const verifyMango = async (mangoLogin: string, mangoPassword: string): Promise<string | null> => {
-    try {
-      const res = await fetchWithRetry(AUTH_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
-        body: JSON.stringify({ action: "verify_mango", mangoLogin, mangoPassword }),
-      });
-      let data = await res.json();
-      if (typeof data === "string") data = JSON.parse(data);
-      if (!res.ok) return data.error || "Ошибка верификации";
-      setUser((prev) => prev ? { ...prev, mangoVerified: true } : prev);
-      return null;
-    } catch {
-      return "Сервер не отвечает. Попробуйте ещё раз.";
-    }
-  };
-
   const logout = async () => {
     if (token) {
       await fetch(AUTH_URL, {
@@ -113,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, verifyMango }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

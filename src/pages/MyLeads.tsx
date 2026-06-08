@@ -1,7 +1,6 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import { useAuth } from "@/contexts/AuthContext";
-import MangoVerifyModal from "@/components/MangoVerifyModal";
 import func2url from "../../backend/func2url.json";
 
 const API = (func2url as Record<string, string>)["candidates"];
@@ -40,7 +39,6 @@ function CallResultBadge({ result }: { result: string }) {
 
 export default function MyLeads() {
   const { user } = useAuth();
-  const [mangoModalOpen, setMangoModalOpen] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [activeName, setActiveName] = useState("");
   const [leads, setLeads] = useState<MyLead[]>([]);
@@ -126,10 +124,10 @@ export default function MyLeads() {
                                 {lead.phone}
                               </a>
                             ) : (
-                              <button className="flex items-center gap-1 hover:text-primary transition-colors" onClick={() => setMangoModalOpen(true)}>
+                              <span className="flex items-center gap-1">
                                 <Icon name="Lock" size={11} />
                                 Скрыт
-                              </button>
+                              </span>
                             )
                           )}
                           {lead.city && (
@@ -168,7 +166,6 @@ export default function MyLeads() {
           </div>
         )}
       </div>
-      <MangoVerifyModal open={mangoModalOpen} onClose={() => setMangoModalOpen(false)} />
     </div>
   );
 }
