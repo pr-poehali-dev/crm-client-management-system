@@ -5,12 +5,12 @@ import func2url from "../../backend/func2url.json";
 const API = (func2url as Record<string, string>)["candidates"];
 
 const CALL_RESULTS = [
-  { value: "Недозвон", label: "Недозвон", color: { color: "#854d0e", background: "#fefce8", borderColor: "#fde047" } },
-  { value: "Занято", label: "Занято", color: { color: "#1d4ed8", background: "#eff6ff", borderColor: "#93c5fd" } },
-  { value: "Отказ", label: "Отказ", color: { color: "#b91c1c", background: "#fef2f2", borderColor: "#fca5a5" } },
-  { value: "Заинтересован", label: "Заинтересован", color: { color: "#15803d", background: "#f0fdf4", borderColor: "#86efac" } },
-  { value: "Перезвонит", label: "Перезвонит", color: { color: "#15803d", background: "#f0fdf4", borderColor: "#86efac" } },
-  { value: "Дубль", label: "Дубль", color: { color: "#b91c1c", background: "#fef2f2", borderColor: "#fca5a5" } },
+  { value: "Недозвон", label: "Недозвон", color: { color: "#fff", background: "#ca8a04", borderColor: "#a16207", fontWeight: "700" } },
+  { value: "Занято", label: "Занято", color: { color: "#fff", background: "#2563eb", borderColor: "#1d4ed8", fontWeight: "700" } },
+  { value: "Отказ", label: "Отказ", color: { color: "#fff", background: "#dc2626", borderColor: "#b91c1c", fontWeight: "700" } },
+  { value: "Заинтересован", label: "Заинтересован", color: { color: "#fff", background: "#16a34a", borderColor: "#15803d", fontWeight: "700" } },
+  { value: "Перезвонит", label: "Перезвонит", color: { color: "#fff", background: "#16a34a", borderColor: "#15803d", fontWeight: "700" } },
+  { value: "Дубль", label: "Дубль", color: { color: "#fff", background: "#dc2626", borderColor: "#b91c1c", fontWeight: "700" } },
 ];
 
 interface MyLead {
