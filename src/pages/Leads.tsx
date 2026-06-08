@@ -454,16 +454,7 @@ export default function Leads() {
                   </td>
                   <td className="px-3 py-2 font-mono text-muted-foreground whitespace-nowrap">{l.createdAt ? new Date(l.createdAt).toLocaleDateString("ru-RU") : "—"}</td>
                   <td className="px-3 py-2">
-                    <select
-                      value={l.callResult || ""}
-                      onChange={(e) => handleSetCallResult(l.id, e.target.value)}
-                      className="text-[11px] border border-border rounded px-1.5 py-0.5 bg-white cursor-pointer focus:outline-none focus:border-blue-400"
-                    >
-                      <option value="">Выбрать</option>
-                      {CALL_RESULTS.map((r) => (
-                        <option key={r.value} value={r.value}>{r.label}</option>
-                      ))}
-                    </select>
+                    <CallResultBadge result={l.callResult} />
                   </td>
                   <td className="px-3 py-2 max-w-[180px] relative">
                     <button
@@ -551,11 +542,11 @@ export default function Leads() {
                       <button
                         key={r.value}
                         onClick={() => handleSetCallResult(detail.id, r.value)}
-                        className={`text-[11px] font-medium px-2 py-1 rounded border transition-colors ${
-                          detail.callResult === r.value
-                            ? r.color + " ring-2 ring-offset-1 ring-current"
-                            : "text-muted-foreground border-border hover:border-gray-400"
-                        }`}
+                        className="text-[11px] font-medium px-2 py-1 rounded border transition-all"
+                        style={detail.callResult === r.value
+                          ? { ...r.color, outline: "2px solid " + r.color.color, outlineOffset: "1px" }
+                          : { color: "#888", borderColor: "#e2e8f0", background: "white" }
+                        }
                       >
                         {r.label}
                       </button>
