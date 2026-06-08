@@ -1,4 +1,4 @@
-import hashlib
+import hashlib  # v2
 import json
 import os
 import secrets
