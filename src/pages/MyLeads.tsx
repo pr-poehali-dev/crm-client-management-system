@@ -118,7 +118,7 @@ export default function MyLeads() {
                         <div className="font-semibold text-sm text-foreground">{lead.fullName || "Без имени"}</div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           {lead.phone && (
-                            user?.mangoVerified ? (
+                            (user?.mangoVerified || user?.role === "admin") ? (
                               <a href={`tel:${lead.phone}`} className="flex items-center gap-1 hover:text-blue-600 transition-colors">
                                 <Icon name="Phone" size={11} />
                                 {lead.phone}

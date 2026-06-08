@@ -436,7 +436,7 @@ export default function Leads() {
                   <td className="px-3 py-2 text-muted-foreground font-mono">{idx + 1}</td>
                   <td className="px-3 py-2 font-semibold whitespace-nowrap max-w-[160px] truncate">{l.fullName || <span className="text-muted-foreground italic">Без имени</span>}</td>
                   <td className="px-3 py-2 whitespace-nowrap">
-                    {user?.mangoVerified ? (
+                    {(user?.mangoVerified || user?.role === "admin") ? (
                       l.phone ? (
                         <a
                           href={`tel:${l.phone}`}
@@ -533,7 +533,7 @@ export default function Leads() {
                   <InfoRow label="ФИО" value={detail.fullName} />
                   <div>
                     <div className="text-xs text-muted-foreground font-medium mb-0.5">Телефон</div>
-                    {user?.mangoVerified ? (
+                    {(user?.mangoVerified || user?.role === "admin") ? (
                       detail.phone ? (
                         <a href={`tel:${detail.phone}`} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
                           <Icon name="Phone" size={13} />
