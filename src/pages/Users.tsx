@@ -18,6 +18,7 @@ interface User {
   role: "admin" | "employee";
   createdAt: string;
   isActive: boolean;
+  mangoVerified: boolean;
 }
 
 function apiParse(raw: string) {
@@ -104,6 +105,15 @@ export default function Users() {
     load();
   };
 
+  const handleToggleMango = async (u: User) => {
+    await fetch(AUTH_URL, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ action: "toggle_mango", id: u.id }),
+    });
+    load();
+  };
+
   const roleBadge = (u: User) => {
     if (!u.isActive) return <span className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-600 border border-red-200">Заблокирован</span>;
     if (u.role === "admin") return <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">Администратор</span>;
@@ -170,6 +180,13 @@ export default function Users() {
                   <span className="text-xs text-muted-foreground italic">Вы</span>
                 ) : (
                   <div className="flex items-center gap-0.5">
+                    <button
+                      onClick={() => handleToggleMango(u)}
+                      className={`p-1.5 rounded transition-colors ${u.mangoVerified ? "text-green-600 hover:bg-red-50 hover:text-red-600" : "text-muted-foreground hover:bg-green-50 hover:text-green-600"}`}
+                      title={u.mangoVerified ? "Закрыть доступ к номерам" : "Открыть доступ к номерам"}
+                    >
+                      <Icon name={u.mangoVerified ? "PhoneCall" : "PhoneOff"} size={14} />
+                    </button>
                     <button
                       onClick={() => { setPasswordModal(u); setNewPassword(""); }}
                       className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"

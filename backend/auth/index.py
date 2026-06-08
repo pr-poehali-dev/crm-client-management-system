@@ -127,6 +127,25 @@ def action_list_users(headers, conn):
     return ok({"users": rows})
 
 
+def action_toggle_mango(body, headers, conn):
+    """Переключение доступа к номерам телефонов для пользователя (только для администраторов)."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return err("Нет доступа", 403)
+    target_id = int(body.get("id", 0))
+    cur = conn.cursor()
+    cur.execute(f"SELECT mango_verified FROM {SCHEMA}.users WHERE id = {target_id}")
+    row = cur.fetchone()
+    if not row:
+        cur.close()
+        return err("Пользователь не найден", 404)
+    new_state = not row[0]
+    cur.execute(f"UPDATE {SCHEMA}.users SET mango_verified = {new_state} WHERE id = {target_id}")
+    conn.commit()
+    cur.close()
+    return ok({"ok": True, "mangoVerified": new_state})
+
+
 def action_verify_mango(body, headers, conn):
     """Верификация через Манго Офис: проверяет логин/пароль через API и сохраняет статус."""
     import urllib.request
@@ -300,6 +319,8 @@ def handler(event: dict, context) -> dict:
             return action_change_password(body, headers, conn)
         if action == "change_own_password":
             return action_change_own_password(body, headers, conn)
+        if action == "toggle_mango":
+            return action_toggle_mango(body, headers, conn)
         if action == "verify_mango":
             return action_verify_mango(body, headers, conn)
         return err(f"Unknown action: {action}")
