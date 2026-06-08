@@ -13,12 +13,12 @@ import { useBadge } from "@/hooks/useBadge";
 const API = (func2url as Record<string, string>)["candidates"];
 
 const CALL_RESULTS = [
-  { value: "Недозвон", label: "Недозвон", color: "text-orange-600 bg-orange-50 border-orange-200" },
-  { value: "Занято", label: "Занято", color: "text-yellow-600 bg-yellow-50 border-yellow-200" },
-  { value: "Отказ", label: "Отказ", color: "text-red-600 bg-red-50 border-red-200" },
-  { value: "Заинтересован", label: "Заинтересован", color: "text-green-600 bg-green-50 border-green-200" },
-  { value: "Перезвонит", label: "Перезвонит", color: "text-blue-600 bg-blue-50 border-blue-200" },
-  { value: "Дубль", label: "Дубль", color: "text-gray-600 bg-gray-50 border-gray-200" },
+  { value: "Недозвон", label: "Недозвон", color: "text-yellow-700 bg-yellow-50 border-yellow-300" },
+  { value: "Занято", label: "Занято", color: "text-blue-700 bg-blue-50 border-blue-300" },
+  { value: "Отказ", label: "Отказ", color: "text-red-700 bg-red-50 border-red-300" },
+  { value: "Заинтересован", label: "Заинтересован", color: "text-green-700 bg-green-50 border-green-300" },
+  { value: "Перезвонит", label: "Перезвонит", color: "text-green-700 bg-green-50 border-green-300" },
+  { value: "Дубль", label: "Дубль", color: "text-red-700 bg-red-50 border-red-300" },
 ];
 
 interface Lead {
