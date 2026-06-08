@@ -13,12 +13,12 @@ import { useBadge } from "@/hooks/useBadge";
 const API = (func2url as Record<string, string>)["candidates"];
 
 const CALL_RESULTS = [
-  { value: "Недозвон", label: "Недозвон", color: "text-yellow-700 bg-yellow-50 border-yellow-300" },
-  { value: "Занято", label: "Занято", color: "text-blue-700 bg-blue-50 border-blue-300" },
-  { value: "Отказ", label: "Отказ", color: "text-red-700 bg-red-50 border-red-300" },
-  { value: "Заинтересован", label: "Заинтересован", color: "text-green-700 bg-green-50 border-green-300" },
-  { value: "Перезвонит", label: "Перезвонит", color: "text-green-700 bg-green-50 border-green-300" },
-  { value: "Дубль", label: "Дубль", color: "text-red-700 bg-red-50 border-red-300" },
+  { value: "Недозвон", label: "Недозвон", color: { color: "#854d0e", background: "#fefce8", borderColor: "#fde047" } },
+  { value: "Занято", label: "Занято", color: { color: "#1d4ed8", background: "#eff6ff", borderColor: "#93c5fd" } },
+  { value: "Отказ", label: "Отказ", color: { color: "#b91c1c", background: "#fef2f2", borderColor: "#fca5a5" } },
+  { value: "Заинтересован", label: "Заинтересован", color: { color: "#15803d", background: "#f0fdf4", borderColor: "#86efac" } },
+  { value: "Перезвонит", label: "Перезвонит", color: { color: "#15803d", background: "#f0fdf4", borderColor: "#86efac" } },
+  { value: "Дубль", label: "Дубль", color: { color: "#b91c1c", background: "#fef2f2", borderColor: "#fca5a5" } },
 ];
 
 interface Lead {
@@ -78,7 +78,7 @@ function CallResultBadge({ result }: { result: string }) {
   const r = CALL_RESULTS.find((x) => x.value === result);
   if (!result || !r) return <span className="text-muted-foreground">—</span>;
   return (
-    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${r.color}`}>
+    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border" style={r.color}>
       {r.label}
     </span>
   );
