@@ -430,8 +430,10 @@ export default function Leads() {
                   </td>
                 </tr>
               )}
-              {filtered.map((l, idx) => (
-                <tr key={l.id} className="border-b border-border hover:bg-amber-50/40 transition-colors group animate-fade-in bg-white">
+              {filtered.map((l, idx) => {
+                const rowColor = CALL_RESULTS.find((r) => r.value === l.callResult);
+                return (
+                <tr key={l.id} className="border-b border-border transition-colors group animate-fade-in" style={rowColor ? { backgroundColor: rowColor.color.background } : { backgroundColor: "white" }}>
                   <td className="px-3 py-2 text-muted-foreground font-mono">{idx + 1}</td>
                   <td className="px-3 py-2 font-semibold whitespace-nowrap max-w-[160px] truncate">{l.fullName || <span className="text-muted-foreground italic">Без имени</span>}</td>
                   <td className="px-3 py-2 whitespace-nowrap">
@@ -491,7 +493,8 @@ export default function Leads() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
