@@ -182,7 +182,7 @@ export default function Users() {
                   <div className="flex items-center gap-0.5">
                     <button
                       onClick={() => handleToggleMango(u)}
-                      className={`p-1.5 rounded transition-colors ${u.mangoVerified ? "text-green-600 hover:bg-red-50 hover:text-red-600" : "text-muted-foreground hover:bg-green-50 hover:text-green-600"}`}
+                      className={`p-1.5 rounded transition-colors ${u.mangoVerified ? "text-green-500 hover:bg-red-50 hover:text-red-600 drop-shadow-[0_0_4px_rgba(34,197,94,0.8)]" : "text-muted-foreground hover:bg-green-50 hover:text-green-600"}`}
                       title={u.mangoVerified ? "Закрыть доступ к номерам" : "Открыть доступ к номерам"}
                     >
                       <Icon name={u.mangoVerified ? "PhoneCall" : "PhoneOff"} size={14} />
