@@ -413,6 +413,23 @@ export default function Index() {
     setCandidates((prev) => prev.filter((c) => c.id !== id));
   };
 
+  const [revertingId, setRevertingId] = useState<number | null>(null);
+  const handleRevertToLead = async (id: number) => {
+    if (!confirm("Вернуть кандидата обратно в лиды?")) return;
+    setRevertingId(id);
+    try {
+      await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+        body: JSON.stringify({ action: "revert_to_lead", id }),
+      });
+      setCandidates((prev) => prev.filter((c) => c.id !== id));
+      setDetailId(null);
+    } finally {
+      setRevertingId(null);
+    }
+  };
+
   const detail = detailId !== null ? candidates.find((c) => c.id === detailId) : null;
 
   return (
@@ -795,7 +812,18 @@ export default function Index() {
                     </div>
                   ) : null
                 )}
-                <div className="flex justify-end pt-2 border-t border-border">
+                <div className="flex justify-between items-center pt-2 border-t border-border">
+                  {isAdmin && (
+                    <Button
+                      variant="outline" size="sm"
+                      onClick={() => handleRevertToLead(detail.id)}
+                      disabled={revertingId === detail.id}
+                      className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200"
+                    >
+                      <Icon name={revertingId === detail.id ? "Loader2" : "Undo2"} size={13} className={revertingId === detail.id ? "animate-spin" : ""} />
+                      Вернуть в лиды
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={() => { setDetailId(null); openEdit(detail); }}>
                     <Icon name="Pencil" size={13} />Редактировать
                   </Button>

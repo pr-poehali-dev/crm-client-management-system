@@ -297,6 +297,19 @@ def action_convert_lead(body, cur, conn):
     return {"statusCode": 200, "headers": CORS, "body": json.dumps(row, ensure_ascii=False)}
 
 
+def action_revert_to_lead(body, cur, conn):
+    """Перевести кандидата обратно в лиды (отмена ошибочного перевода). Только для админов."""
+    candidate_id = int(body.get("id", 0))
+    cur.execute(
+        f"UPDATE {SCHEMA}.candidates SET is_lead = true WHERE id={candidate_id} AND is_lead = false RETURNING id"
+    )
+    row = cur.fetchone()
+    if not row:
+        return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Not found"})}
+    conn.commit()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "id": row[0]})}
+
+
 def action_dmp(event: dict, body: dict = None) -> dict:
     """Webhook от DMP.ONE — создаёт лида из входящего запроса."""
     from datetime import date
@@ -815,6 +828,8 @@ def handler(event: dict, context) -> dict:
                 return action_delete(body, cur, conn)
             if action == "convert_lead":
                 return action_convert_lead(body, cur, conn)
+            if action == "revert_to_lead":
+                return action_revert_to_lead(body, cur, conn)
             if action == "toggle_called":
                 return action_toggle_called(body, cur, conn, headers)
             if action == "set_call_result":
