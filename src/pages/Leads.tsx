@@ -220,22 +220,30 @@ export default function Leads() {
     setImportResult(null);
     try {
       const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array" });
+      const isCsv = file.name.toLowerCase().endsWith(".csv");
+      const wb = XLSX.read(buf, { type: "array", raw: false, FS: isCsv ? "," : undefined });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const raw = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: "" });
+      const raw = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: "", raw: false });
+
+      // Определяем реальное имя колонки с телефоном (может быть "Phone", числовым ключом и т.д.)
+      const sampleKeys = raw.length > 0 ? Object.keys(raw[0]) : [];
+      const phoneKey = sampleKeys.find((k) => /phone|телефон|tel/i.test(k)) || "Phone";
+      const nameKey = sampleKeys.find((k) => /name|фио|fullname/i.test(k) && !/channel/i.test(k)) || "";
+      const channelKey = sampleKeys.find((k) => /channel/i.test(k)) || "";
+
       const rows = raw.map((r) => {
-        const phone = String(r["Phone"] || r["Телефон"] || r["phone"] || r["tel"] || "").trim();
-        const source = r["ChannelName"] || r["Channel Name"] || "";
+        const phone = String(r[phoneKey] || "").replace(/\D/g, "");
+        const source = channelKey ? (r[channelKey] || "") : "";
         const baseNotes = r["Примечание"] || r["notes"] || "";
-        const notes = source ? `Источник: DMP.ONE (${source})` + (baseNotes ? `\n${baseNotes}` : "") : baseNotes;
+        const notes = source ? `Источник: DMP.ONE (${source})` + (baseNotes ? `\n${baseNotes}` : "") : (baseNotes || "Источник: DMP.ONE");
         return {
-          fullName: r["ФИО"] || r["fullName"] || r["full_name"] || r["name"] || "",
+          fullName: nameKey ? (r[nameKey] || "") : "",
           phone,
           city: r["Город"] || r["city"] || "",
           citizenship: r["Гражданство"] || r["citizenship"] || "",
           notes,
         };
-      });
+      }).filter((r) => r.phone);
       const res = await fetch(API, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
