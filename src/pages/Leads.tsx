@@ -103,6 +103,7 @@ export default function Leads() {
   const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState("");
   const [showUncalled, setShowUncalled] = useState(false);
+  const [filterEmployee, setFilterEmployee] = useState("");
   const [detailId, setDetailId] = useState<number | null>(null);
   const [convertingId, setConvertingId] = useState<number | null>(null);
   const [commentEditId, setCommentEditId] = useState<number | null>(null);
@@ -152,8 +153,11 @@ export default function Leads() {
 
   useEffect(() => { loadLeads(); }, [loadLeads]);
 
+  const employees = Array.from(new Set(leads.map((l) => l.assignedTo).filter(Boolean))).sort();
+
   const filtered = leads.filter((l) => {
     if (showUncalled && l.called) return false;
+    if (filterEmployee && l.assignedTo !== filterEmployee) return false;
     return [l.fullName, l.phone, l.city].some((v) =>
       v.toLowerCase().includes(search.toLowerCase())
     );
@@ -486,6 +490,17 @@ export default function Leads() {
           <Icon name="PhoneMissed" size={13} />
           <span>Непрозвоненные</span>
         </button>
+        {isAdmin && employees.length > 0 && (
+          <select
+            value={filterEmployee}
+            onChange={(e) => setFilterEmployee(e.target.value)}
+            className={`text-xs h-8 px-2 rounded border transition-colors focus:outline-none ${filterEmployee ? "border-blue-500 bg-blue-50 text-blue-700 font-medium" : "border-border text-muted-foreground bg-white"}`}
+            title="Фильтр по сотруднику"
+          >
+            <option value="">Все сотрудники</option>
+            {employees.map((e) => <option key={e} value={e}>{e}</option>)}
+          </select>
+        )}
         <span className="text-xs text-muted-foreground">
           Показано: <b className="text-foreground">{filtered.length}</b> из {leads.length}
         </span>
