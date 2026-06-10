@@ -240,9 +240,18 @@ export default function Leads() {
     setImporting(true);
     setImportResult(null);
     try {
-      const buf = await file.arrayBuffer();
       const isCsv = file.name.toLowerCase().endsWith(".csv");
-      const wb = XLSX.read(buf, { type: "array", raw: false, FS: isCsv ? "," : undefined });
+      let wb: XLSX.WorkBook;
+      if (isCsv) {
+        const text = await file.text();
+        // Определяем разделитель: если больше ; чем , — используем ;
+        const firstLine = text.split("\n")[0] || "";
+        const sep = (firstLine.split(";").length > firstLine.split(",").length) ? ";" : ",";
+        wb = XLSX.read(text, { type: "string", FS: sep });
+      } else {
+        const buf = await file.arrayBuffer();
+        wb = XLSX.read(buf, { type: "array", raw: false });
+      }
       const ws = wb.Sheets[wb.SheetNames[0]];
       const raw = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: "", raw: false });
 

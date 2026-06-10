@@ -542,7 +542,7 @@ def action_delete_empty_leads(headers, conn):
         return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
     cur = conn.cursor()
     cur.execute(
-        f"DELETE FROM {SCHEMA}.candidates WHERE is_lead = true AND (phone = '' OR phone IS NULL) AND (full_name = '' OR full_name IS NULL) RETURNING id"
+        f"DELETE FROM {SCHEMA}.candidates WHERE is_lead = true AND (full_name = '' OR full_name IS NULL) AND ((phone = '' OR phone IS NULL) OR LENGTH(phone) > 15) RETURNING id"
     )
     deleted = len(cur.fetchall())
     conn.commit()
