@@ -209,6 +209,42 @@ export default function Leads() {
     if (detailId === id) setDetailId(null);
   };
 
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
+
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: "" });
+      const rows = raw.map((r) => ({
+        fullName: r["ФИО"] || r["fullName"] || r["full_name"] || r["name"] || "",
+        phone: r["Телефон"] || r["phone"] || r["tel"] || "",
+        city: r["Город"] || r["city"] || "",
+        citizenship: r["Гражданство"] || r["citizenship"] || "",
+        notes: r["Примечание"] || r["notes"] || "",
+      }));
+      const res = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+        body: JSON.stringify({ action: "import_leads", rows }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setImportResult({ imported: data.imported, skipped: data.skipped });
+        loadLeads();
+      }
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const handleExportExcel = () => {
     const rows = filtered.map((l, idx) => ({
       "№": idx + 1,
@@ -385,6 +421,18 @@ export default function Leads() {
           Показано: <b className="text-foreground">{filtered.length}</b> из {leads.length}
         </span>
         <div className="ml-auto flex items-center gap-2">
+          {importResult && (
+            <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded">
+              Загружено: <b>{importResult.imported}</b>{importResult.skipped > 0 ? `, пропущено дублей: ${importResult.skipped}` : ""}
+            </span>
+          )}
+          {isAdmin && (
+            <label className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer ${importing ? "opacity-60 pointer-events-none" : ""}`} title="Импорт лидов из Excel (DMP.ONE)">
+              <Icon name={importing ? "Loader2" : "Upload"} size={13} className={importing ? "animate-spin" : ""} />
+              <span>{importing ? "Импорт..." : "Импорт"}</span>
+              <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel} disabled={importing} />
+            </label>
+          )}
           <button
             onClick={handleExportExcel}
             disabled={filtered.length === 0}

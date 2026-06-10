@@ -480,6 +480,61 @@ def action_webhook(event: dict) -> dict:
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "id": new_id})}
 
 
+def action_import_leads(body, headers, conn):
+    """Массовый импорт лидов из Excel (через JSON). Принимает массив записей, возвращает статистику."""
+    from datetime import date
+
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
+
+    rows = body.get("rows", [])
+    if not rows:
+        return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "Нет данных для импорта"})}
+
+    imported = 0
+    skipped = 0
+    today = str(date.today())
+
+    cur = conn.cursor()
+    for row in rows:
+        phone = (row.get("phone") or row.get("Телефон") or "").strip()
+        full_name = (row.get("fullName") or row.get("ФИО") or "").strip()
+        city = (row.get("city") or row.get("Город") or "").strip()
+        citizenship = (row.get("citizenship") or row.get("Гражданство") or "").strip()
+        notes = (row.get("notes") or row.get("Примечание") or "").strip()
+        if notes and "DMP.ONE" not in notes:
+            notes = f"Источник: DMP.ONE\n{notes}".strip()
+        elif not notes:
+            notes = "Источник: DMP.ONE"
+
+        # Пропускаем дубли по номеру телефона
+        if phone:
+            cur.execute(f"SELECT 1 FROM {SCHEMA}.candidates WHERE phone = {q(phone)} AND is_lead = true LIMIT 1")
+            if cur.fetchone():
+                skipped += 1
+                continue
+
+        cur.execute(
+            f"""INSERT INTO {SCHEMA}.candidates
+                (full_name, phone, city, citizenship, notes,
+                 age, criminal_record, chronic_diseases, dispensary_record,
+                 doc_photos, relation_photos, tickets, contract_photos,
+                 employee_name, company, relations, birth_date, arrival_date,
+                 has_inn, has_snils, created_at, is_lead)
+                VALUES ({q(full_name)},{q(phone)},{q(city)},{q(citizenship)},{q(notes)},
+                        '','','','',
+                        '[]','[]','[]','[]',
+                        '','','','','',
+                        false, false, {q(today)}, true)"""
+        )
+        imported += 1
+
+    conn.commit()
+    cur.close()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "imported": imported, "skipped": skipped})}
+
+
 def action_announcements_get(event, conn):
     query = event.get("queryStringParameters") or {}
     last_id = query.get("last_id")
@@ -707,6 +762,8 @@ def handler(event: dict, context) -> dict:
                 return action_toggle_called(body, cur, conn)
             if action == "set_call_result":
                 return action_set_call_result(body, cur, conn)
+            if action == "import_leads":
+                return action_import_leads(body, headers, conn)
             return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": f"Unknown action: {action}"})}
         finally:
             cur.close()
