@@ -197,20 +197,30 @@ def action_delete(body, cur, conn):
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
 
 
-def action_toggle_called(body, cur, conn):
+def action_toggle_called(body, cur, conn, headers=None):
     candidate_id = int(body.get("id", 0))
-    called = "true" if bool(body.get("called", False)) else "false"
+    called = bool(body.get("called", False))
+    called_sql = "true" if called else "false"
     cur.execute(
-        f"UPDATE {SCHEMA}.candidates SET called={called} WHERE id={candidate_id} RETURNING id, called"
+        f"UPDATE {SCHEMA}.candidates SET called={called_sql} WHERE id={candidate_id} RETURNING id, called"
     )
     row = cur.fetchone()
     if not row:
         return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Not found"})}
+    if called and headers:
+        user = get_session_user(conn, headers.get("x-session-id", ""))
+        user_name = user["fullName"] if user else ""
+        user_id = user["id"] if user else None
+        uid_sql = str(user_id) if user_id else "NULL"
+        cur.execute(
+            f"INSERT INTO {SCHEMA}.call_log (candidate_id, user_id, user_name, result, comment) "
+            f"VALUES ({candidate_id}, {uid_sql}, {q(user_name)}, 'Прозвонен', '')"
+        )
     conn.commit()
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"id": str(row[0]), "called": row[1]})}
 
 
-def action_set_call_result(body, cur, conn):
+def action_set_call_result(body, cur, conn, headers=None):
     """Сохранение результата звонка, комментария и ФИО сотрудника по лиду."""
     candidate_id = int(body.get("id", 0))
     result = str(body.get("result", ""))
@@ -223,8 +233,31 @@ def action_set_call_result(body, cur, conn):
     row = cur.fetchone()
     if not row:
         return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Not found"})}
+    if result and headers:
+        user = get_session_user(conn, headers.get("x-session-id", ""))
+        user_name = user["fullName"] if user else assigned_to
+        user_id = user["id"] if user else None
+        uid_sql = str(user_id) if user_id else "NULL"
+        cur.execute(
+            f"INSERT INTO {SCHEMA}.call_log (candidate_id, user_id, user_name, result, comment) "
+            f"VALUES ({candidate_id}, {uid_sql}, {q(user_name)}, {q(result)}, {q(comment)})"
+        )
     conn.commit()
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"id": str(row[0]), "call_result": row[1], "call_comment": row[2], "called": row[3], "assigned_to": row[4]})}
+
+
+def action_get_call_log(params, cur):
+    """Получение истории звонков по лиду/кандидату."""
+    candidate_id = int(params.get("candidate_id") or 0)
+    if not candidate_id:
+        return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "candidate_id required"})}
+    cur.execute(
+        f"SELECT id, user_name, called_at, result, comment FROM {SCHEMA}.call_log "
+        f"WHERE candidate_id={candidate_id} ORDER BY called_at DESC"
+    )
+    rows = cur.fetchall()
+    log = [{"id": r[0], "userName": r[1], "calledAt": r[2].isoformat() if r[2] else "", "result": r[3], "comment": r[4]} for r in rows]
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"log": log})}
 
 
 def action_get_my_leads(params, cur):
@@ -700,6 +733,15 @@ def handler(event: dict, context) -> dict:
         finally:
             conn.close()
 
+    # GET — история звонков по лиду
+    if query_params.get("mode") == "call_log":
+        conn = get_conn()
+        try:
+            cur = conn.cursor()
+            return action_get_call_log(query_params, cur)
+        finally:
+            conn.close()
+
     # GET — объявления
     if query_params.get("mode") == "announcements":
         conn = get_conn()
@@ -774,9 +816,9 @@ def handler(event: dict, context) -> dict:
             if action == "convert_lead":
                 return action_convert_lead(body, cur, conn)
             if action == "toggle_called":
-                return action_toggle_called(body, cur, conn)
+                return action_toggle_called(body, cur, conn, headers)
             if action == "set_call_result":
-                return action_set_call_result(body, cur, conn)
+                return action_set_call_result(body, cur, conn, headers)
             if action == "import_leads":
                 return action_import_leads(body, headers, conn)
             if action == "delete_empty_leads":

@@ -36,6 +36,14 @@ interface Lead {
   assignedTo: string;
 }
 
+interface CallLogEntry {
+  id: number;
+  userName: string;
+  calledAt: string;
+  result: string;
+  comment: string;
+}
+
 interface ApiLead {
   id: string;
   full_name: string;
@@ -101,8 +109,24 @@ export default function Leads() {
   const [commentDraft, setCommentDraft] = useState("");
   const [assignPopup, setAssignPopup] = useState<{ id: number; result: string } | null>(null);
   const [assignName, setAssignName] = useState("");
+  const [callLog, setCallLog] = useState<CallLogEntry[]>([]);
+  const [callLogLoading, setCallLogLoading] = useState(false);
   const { unreadCount } = useUnread(token, user?.id);
   useBadge(unreadCount);
+
+  const loadCallLog = useCallback(async (candidateId: number) => {
+    setCallLogLoading(true);
+    setCallLog([]);
+    try {
+      const res = await fetch(`${API}?mode=call_log&candidate_id=${candidateId}`, {
+        headers: token ? { "X-Session-Id": token } : {},
+      });
+      const data = await res.json();
+      setCallLog(data.log || []);
+    } finally {
+      setCallLogLoading(false);
+    }
+  }, [token]);
 
   const loadLeads = useCallback(async () => {
     setLoading(true);
@@ -177,6 +201,7 @@ export default function Leads() {
       headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
       body: JSON.stringify({ action: "set_call_result", id, result, comment: newComment, assignedTo: finalAssigned }),
     });
+    if (detailId === id) loadCallLog(id);
   };
 
   const handleAssignConfirm = async () => {
@@ -520,7 +545,7 @@ export default function Leads() {
           <table className="w-full text-xs border-collapse" style={{ minWidth: "820px" }}>
             <thead>
               <tr style={{ background: "hsl(217, 60%, 22%)" }}>
-                {["№", "ФИО", "Телефон", "Город", "Гражданство", "Примечание", "Дата", "Результат", "Комментарий", ""].map((h, i) => (
+                {["№", "ФИО", "Телефон", "Город", "Гражданство", "Примечание", "Дата", "Результат", "Кто звонил", "Комментарий", ""].map((h, i) => (
                   <th key={i} className="text-left px-3 py-2 font-medium text-xs tracking-wide text-white/80 border-b border-white/10 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -528,7 +553,7 @@ export default function Leads() {
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="text-center py-20 text-muted-foreground">
+                  <td colSpan={11} className="text-center py-20 text-muted-foreground">
                     <Icon name="Inbox" size={36} className="mx-auto mb-3 opacity-25" />
                     <div className="text-sm">Нет лидов. Они появятся здесь после заявок с сайта.</div>
                   </td>
@@ -580,6 +605,12 @@ export default function Leads() {
                       ))}
                     </select>
                   </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {l.assignedTo
+                      ? <span className="flex items-center gap-1 text-[11px] text-slate-600"><Icon name="User" size={10} />{l.assignedTo}</span>
+                      : <span className="text-muted-foreground">—</span>
+                    }
+                  </td>
                   <td className="px-3 py-2 max-w-[180px] relative">
                     <button
                       onClick={() => { setCommentEditId(l.id); setCommentDraft(l.callComment || ""); }}
@@ -596,7 +627,7 @@ export default function Leads() {
                   </td>
                   <td className="px-3 py-2 sticky right-0 bg-white group-hover:bg-amber-50/40">
                     <div className="flex items-center gap-0.5">
-                      <button onClick={() => setDetailId(l.id)} className="p-1 rounded hover:bg-blue-100 text-blue-600 transition-colors" title="Подробнее">
+                      <button onClick={() => { setDetailId(l.id); loadCallLog(l.id); }} className="p-1 rounded hover:bg-blue-100 text-blue-600 transition-colors" title="Подробнее">
                         <Icon name="Eye" size={13} />
                       </button>
                       <button
@@ -683,6 +714,46 @@ export default function Leads() {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* История звонков */}
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Icon name="History" size={13} />
+                    История звонков
+                  </div>
+                  {callLogLoading ? (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                      <Icon name="Loader2" size={13} className="animate-spin" /> Загрузка...
+                    </div>
+                  ) : callLog.length === 0 ? (
+                    <div className="text-xs text-muted-foreground italic">Звонков ещё не было</div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {callLog.map((entry) => {
+                        const cr = CALL_RESULTS.find((r) => r.value === entry.result);
+                        return (
+                          <div key={entry.id} className="flex items-start gap-2 text-xs bg-muted/40 rounded px-2 py-1.5">
+                            <Icon name="User" size={12} className="mt-0.5 shrink-0 text-muted-foreground" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-medium">{entry.userName || "Неизвестно"}</span>
+                                {entry.result && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={cr ? { color: cr.color.color, background: cr.color.background } : { color: "#888", background: "#f1f5f9" }}>
+                                    {entry.result}
+                                  </span>
+                                )}
+                                <span className="text-muted-foreground ml-auto shrink-0">
+                                  {new Date(entry.calledAt).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                              </div>
+                              {entry.comment && <div className="text-muted-foreground mt-0.5 truncate">{entry.comment}</div>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-between items-center pt-2 border-t border-border gap-2">
