@@ -535,6 +535,21 @@ def action_import_leads(body, headers, conn):
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "imported": imported, "skipped": skipped})}
 
 
+def action_delete_empty_leads(headers, conn):
+    """Удаляет лиды без телефона и имени (мусорные записи от неудачного импорта). Только для админов."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
+    cur = conn.cursor()
+    cur.execute(
+        f"DELETE FROM {SCHEMA}.candidates WHERE is_lead = true AND (phone = '' OR phone IS NULL) AND (full_name = '' OR full_name IS NULL) RETURNING id"
+    )
+    deleted = len(cur.fetchall())
+    conn.commit()
+    cur.close()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "deleted": deleted})}
+
+
 def action_announcements_get(event, conn):
     query = event.get("queryStringParameters") or {}
     last_id = query.get("last_id")
@@ -764,6 +779,8 @@ def handler(event: dict, context) -> dict:
                 return action_set_call_result(body, cur, conn)
             if action == "import_leads":
                 return action_import_leads(body, headers, conn)
+            if action == "delete_empty_leads":
+                return action_delete_empty_leads(headers, conn)
             return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": f"Unknown action: {action}"})}
         finally:
             cur.close()

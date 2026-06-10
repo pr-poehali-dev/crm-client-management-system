@@ -211,6 +211,27 @@ export default function Leads() {
 
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [cleaningEmpty, setCleaningEmpty] = useState(false);
+
+  const handleDeleteEmptyLeads = async () => {
+    if (!confirm("Удалить все лиды без телефона и имени (мусорные записи от неудачного импорта)?")) return;
+    setCleaningEmpty(true);
+    try {
+      const res = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+        body: JSON.stringify({ action: "delete_empty_leads" }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setImportResult({ imported: 0, skipped: 0 });
+        alert(`Удалено пустых записей: ${data.deleted}`);
+        loadLeads();
+      }
+    } finally {
+      setCleaningEmpty(false);
+    }
+  };
 
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -441,11 +462,22 @@ export default function Leads() {
             </span>
           )}
           {isAdmin && (
-            <label className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer ${importing ? "opacity-60 pointer-events-none" : ""}`} title="Импорт лидов из Excel (DMP.ONE)">
-              <Icon name={importing ? "Loader2" : "Upload"} size={13} className={importing ? "animate-spin" : ""} />
-              <span>{importing ? "Импорт..." : "Импорт"}</span>
-              <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportExcel} disabled={importing} />
-            </label>
+            <>
+              <button
+                onClick={handleDeleteEmptyLeads}
+                disabled={cleaningEmpty}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 transition-colors disabled:opacity-40"
+                title="Удалить лиды без телефона (мусор от неудачного импорта)"
+              >
+                <Icon name={cleaningEmpty ? "Loader2" : "Trash2"} size={13} className={cleaningEmpty ? "animate-spin" : ""} />
+                <span>Очистить пустые</span>
+              </button>
+              <label className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer ${importing ? "opacity-60 pointer-events-none" : ""}`} title="Импорт лидов из Excel (DMP.ONE)">
+                <Icon name={importing ? "Loader2" : "Upload"} size={13} className={importing ? "animate-spin" : ""} />
+                <span>{importing ? "Импорт..." : "Импорт"}</span>
+                <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportExcel} disabled={importing} />
+              </label>
+            </>
           )}
           <button
             onClick={handleExportExcel}
