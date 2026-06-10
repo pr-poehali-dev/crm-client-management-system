@@ -430,7 +430,7 @@ export default function Leads() {
             <label className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer ${importing ? "opacity-60 pointer-events-none" : ""}`} title="Импорт лидов из Excel (DMP.ONE)">
               <Icon name={importing ? "Loader2" : "Upload"} size={13} className={importing ? "animate-spin" : ""} />
               <span>{importing ? "Импорт..." : "Импорт"}</span>
-              <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel} disabled={importing} />
+              <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportExcel} disabled={importing} />
             </label>
           )}
           <button
