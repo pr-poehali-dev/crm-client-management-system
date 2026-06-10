@@ -223,13 +223,19 @@ export default function Leads() {
       const wb = XLSX.read(buf, { type: "array" });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const raw = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: "" });
-      const rows = raw.map((r) => ({
-        fullName: r["ФИО"] || r["fullName"] || r["full_name"] || r["name"] || "",
-        phone: r["Телефон"] || r["phone"] || r["tel"] || "",
-        city: r["Город"] || r["city"] || "",
-        citizenship: r["Гражданство"] || r["citizenship"] || "",
-        notes: r["Примечание"] || r["notes"] || "",
-      }));
+      const rows = raw.map((r) => {
+        const phone = String(r["Phone"] || r["Телефон"] || r["phone"] || r["tel"] || "").trim();
+        const source = r["ChannelName"] || r["Channel Name"] || "";
+        const baseNotes = r["Примечание"] || r["notes"] || "";
+        const notes = source ? `Источник: DMP.ONE (${source})` + (baseNotes ? `\n${baseNotes}` : "") : baseNotes;
+        return {
+          fullName: r["ФИО"] || r["fullName"] || r["full_name"] || r["name"] || "",
+          phone,
+          city: r["Город"] || r["city"] || "",
+          citizenship: r["Гражданство"] || r["citizenship"] || "",
+          notes,
+        };
+      });
       const res = await fetch(API, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
