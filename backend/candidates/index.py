@@ -123,18 +123,19 @@ def send_telegram(text: str):
 
 def action_create(body, cur, conn):
     created_at = q(body.get("createdAt")) if body.get("createdAt") else "NOW()"
+    is_lead = qb(body.get("isLead", False))
     cur.execute(
         f"""INSERT INTO {SCHEMA}.candidates
             (full_name, age, criminal_record, chronic_diseases, dispensary_record,
              notes, doc_photos, relation_photos, tickets, contract_photos, employee_name, company, created_at,
-             birth_date, city, citizenship, has_inn, has_snils, relations, phone, arrival_date)
+             birth_date, city, citizenship, has_inn, has_snils, relations, phone, arrival_date, is_lead)
             VALUES ({q(body.get("fullName",""))},{q(body.get("age",""))},{q(body.get("criminalRecord",""))},{q(body.get("chronicDiseases",""))},{q(body.get("dispensaryRecord",""))},
                     {q(body.get("notes",""))},{q(json.dumps(body.get("docPhotos",[]),ensure_ascii=False))},{q(json.dumps(body.get("relationPhotos",[]),ensure_ascii=False))},
                     {q(json.dumps(body.get("tickets",[]),ensure_ascii=False))},{q(json.dumps(body.get("contractPhotos",[]),ensure_ascii=False))},
                     {q(body.get("employeeName",""))},{q(body.get("company",""))},{created_at},
                     {q(body.get("birthDate",""))},{q(body.get("city",""))},{q(body.get("citizenship",""))},
                     {qb(body.get("hasInn",False))},{qb(body.get("hasSnils",False))},
-                    {q(body.get("relations",""))},{q(body.get("phone",""))},{q(body.get("arrivalDate",""))})
+                    {q(body.get("relations",""))},{q(body.get("phone",""))},{q(body.get("arrivalDate",""))},{is_lead})
             RETURNING *"""
     )
     row = row_to_dict(cur.fetchone(), cur)
