@@ -432,8 +432,8 @@ export default function Index() {
   useEffect(() => {
     if (colorPickerId === null) return;
     const close = () => setColorPickerId(null);
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
+    const timer = setTimeout(() => document.addEventListener("click", close), 0);
+    return () => { clearTimeout(timer); document.removeEventListener("click", close); };
   }, [colorPickerId]);
   const handleRevertToLead = async (id: number) => {
     if (!confirm("Вернуть кандидата обратно в лиды?")) return;

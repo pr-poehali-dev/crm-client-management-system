@@ -126,8 +126,8 @@ export default function Leads() {
   useEffect(() => {
     if (colorPickerId === null) return;
     const close = () => setColorPickerId(null);
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
+    const timer = setTimeout(() => document.addEventListener("click", close), 0);
+    return () => { clearTimeout(timer); document.removeEventListener("click", close); };
   }, [colorPickerId]);
 
   const loadCallLog = useCallback(async (candidateId: number) => {
