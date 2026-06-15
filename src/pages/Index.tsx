@@ -594,8 +594,8 @@ export default function Index() {
               )}
               {filtered.map((c, idx) => {
                 const hasContract = c.contractPhotos.length > 0;
-                const rowBg = c.colorMark ? c.colorMark + "22" : hasContract ? "#bbf7d055" : "white";
-                const rowBorderLeft = c.colorMark ? `3px solid ${c.colorMark}` : hasContract ? "3px solid #22c55e" : undefined;
+                const rowBg = c.colorMark ? c.colorMark + "44" : hasContract ? "#bbf7d0" : "white";
+                const rowBorderLeft = c.colorMark ? `3px solid ${c.colorMark}` : hasContract ? "3px solid #16a34a" : undefined;
                 return (
                 <tr key={c.id} className="border-b border-border hover:bg-blue-50/50 transition-colors group animate-fade-in" style={{ background: rowBg, borderLeft: rowBorderLeft }}>
                   <td className="px-2 py-2 text-muted-foreground font-mono">{idx + 1}</td>

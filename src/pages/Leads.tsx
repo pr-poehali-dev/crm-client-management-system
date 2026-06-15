@@ -691,8 +691,8 @@ export default function Leads() {
               )}
               {filtered.map((l, idx) => {
                 const isUncalled = !l.called && !l.callResult;
-                const rowBg = l.colorMark ? l.colorMark + "22" : undefined;
-                const rowBorder = l.colorMark ? `2px solid ${l.colorMark}44` : undefined;
+                const rowBg = l.colorMark ? l.colorMark + "44" : undefined;
+                const rowBorder = l.colorMark ? `3px solid ${l.colorMark}` : undefined;
                 return (
                 <tr key={l.id} className="border-b border-border hover:bg-muted/40 transition-colors group animate-fade-in" style={{ background: rowBg || "white", borderLeft: rowBorder }}>
                   {isAdmin && (
