@@ -74,6 +74,12 @@ def row_to_dict(row, cursor):
             d[field] = json.loads(val)
         elif val is None:
             d[field] = []
+    if "color_mark" not in d:
+        d["color_mark"] = ""
+    if d.get("color_mark") is None:
+        d["color_mark"] = ""
+    if "assigned_user_id" not in d:
+        d["assigned_user_id"] = None
     return d
 
 
@@ -296,6 +302,44 @@ def action_convert_lead(body, cur, conn):
     row = row_to_dict(cur.fetchone(), cur)
     conn.commit()
     return {"statusCode": 200, "headers": CORS, "body": json.dumps(row, ensure_ascii=False)}
+
+
+def action_assign_leads(body, cur, conn, headers):
+    """Назначить выбранные лиды сотруднику (по user_id). Только для админов."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
+    ids = body.get("ids", [])
+    assigned_user_id = body.get("assignedUserId")
+    assigned_to = (body.get("assignedTo") or "").strip()
+    if not ids:
+        return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "ids required"})}
+    ids_sql = ",".join(str(int(i)) for i in ids)
+    uid_sql = str(int(assigned_user_id)) if assigned_user_id else "NULL"
+    cur.execute(
+        f"UPDATE {SCHEMA}.candidates SET assigned_user_id={uid_sql}, assigned_to={q(assigned_to)} "
+        f"WHERE id IN ({ids_sql}) AND is_lead=true RETURNING id"
+    )
+    updated = [r[0] for r in cur.fetchall()]
+    conn.commit()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "updated": updated})}
+
+
+def action_set_color(body, cur, conn, headers):
+    """Установить цветовую пометку кандидату/лиду."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user:
+        return {"statusCode": 401, "headers": CORS, "body": json.dumps({"error": "Unauthorized"})}
+    candidate_id = int(body.get("id", 0))
+    color = (body.get("color") or "").strip()
+    cur.execute(
+        f"UPDATE {SCHEMA}.candidates SET color_mark={q(color)} WHERE id={candidate_id} RETURNING id, color_mark"
+    )
+    row = cur.fetchone()
+    if not row:
+        return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Not found"})}
+    conn.commit()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "id": row[0], "colorMark": row[1]})}
 
 
 def action_revert_to_lead(body, cur, conn):
@@ -839,6 +883,10 @@ def handler(event: dict, context) -> dict:
                 return action_import_leads(body, headers, conn)
             if action == "delete_empty_leads":
                 return action_delete_empty_leads(headers, conn)
+            if action == "assign_leads":
+                return action_assign_leads(body, cur, conn, headers)
+            if action == "set_color":
+                return action_set_color(body, cur, conn, headers)
             return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": f"Unknown action: {action}"})}
         finally:
             cur.close()

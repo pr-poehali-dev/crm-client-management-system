@@ -48,6 +48,7 @@ interface Candidate {
   company: string;
   createdAt: string;
   called: boolean;
+  colorMark: string;
 }
 
 interface ApiCandidate {
@@ -74,6 +75,7 @@ interface ApiCandidate {
   company: string;
   created_at: string;
   called: boolean;
+  color_mark: string;
 }
 
 function fromApi(r: ApiCandidate): Candidate {
@@ -101,6 +103,7 @@ function fromApi(r: ApiCandidate): Candidate {
     company: r.company || "",
     createdAt: r.created_at,
     called: r.called || false,
+    colorMark: r.color_mark || "",
   };
 }
 
@@ -337,6 +340,16 @@ export default function Index() {
     });
   };
 
+  const handleSetColor = async (id: number, color: string) => {
+    setCandidates((prev) => prev.map((c) => c.id === id ? { ...c, colorMark: color } : c));
+    setColorPickerId(null);
+    await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+      body: JSON.stringify({ action: "set_color", id, color }),
+    });
+  };
+
   const handleExportExcel = () => {
     const rows = filtered.map((c, idx) => ({
       "№": idx + 1,
@@ -414,6 +427,14 @@ export default function Index() {
   };
 
   const [revertingId, setRevertingId] = useState<number | null>(null);
+  const [colorPickerId, setColorPickerId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (colorPickerId === null) return;
+    const close = () => setColorPickerId(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [colorPickerId]);
   const handleRevertToLead = async (id: number) => {
     if (!confirm("Вернуть кандидата обратно в лиды?")) return;
     setRevertingId(id);
@@ -571,8 +592,12 @@ export default function Index() {
                   </td>
                 </tr>
               )}
-              {filtered.map((c, idx) => (
-                <tr key={c.id} className="border-b border-border hover:bg-blue-50/50 transition-colors group animate-fade-in bg-white">
+              {filtered.map((c, idx) => {
+                const hasContract = c.contractPhotos.length > 0;
+                const rowBg = c.colorMark ? c.colorMark + "22" : hasContract ? "#bbf7d055" : "white";
+                const rowBorderLeft = c.colorMark ? `3px solid ${c.colorMark}` : hasContract ? "3px solid #22c55e" : undefined;
+                return (
+                <tr key={c.id} className="border-b border-border hover:bg-blue-50/50 transition-colors group animate-fade-in" style={{ background: rowBg, borderLeft: rowBorderLeft }}>
                   <td className="px-2 py-2 text-muted-foreground font-mono">{idx + 1}</td>
                   <td className="px-2 py-2 font-semibold whitespace-nowrap max-w-[160px] truncate">{c.fullName}</td>
                   <td className="px-2 py-2 whitespace-nowrap font-mono">{c.phone || <span className="text-muted-foreground">—</span>}</td>
@@ -608,14 +633,41 @@ export default function Index() {
                         <Icon name="Pencil" size={13} />
                       </button>
                       {isAdmin && (
-                        <button onClick={() => handleDelete(c.id)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors" title="Удалить">
-                          <Icon name="Trash2" size={13} />
-                        </button>
+                        <>
+                          <div className="relative">
+                            <button
+                              onClick={() => setColorPickerId(colorPickerId === c.id ? null : c.id)}
+                              className="p-1 rounded hover:bg-purple-50 transition-colors"
+                              title="Цвет пометки"
+                              style={{ color: c.colorMark || "#94a3b8" }}
+                            >
+                              <Icon name="Palette" size={13} />
+                            </button>
+                            {colorPickerId === c.id && (
+                              <div className="absolute right-0 bottom-7 z-50 bg-white border border-border rounded-lg shadow-xl p-2 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                <div className="text-[10px] text-muted-foreground mb-1 font-medium px-1">Цвет строки</div>
+                                <div className="flex gap-1.5 flex-wrap w-[136px]">
+                                  {["#ef4444","#f97316","#eab308","#22c55e","#3b82f6","#8b5cf6","#ec4899","#14b8a6"].map((col) => (
+                                    <button key={col} onClick={() => handleSetColor(c.id, col)} className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110" style={{ background: col, borderColor: c.colorMark === col ? "#1e293b" : "transparent" }} />
+                                  ))}
+                                  <input type="color" value={c.colorMark || "#3b82f6"} onChange={(e) => handleSetColor(c.id, e.target.value)} className="w-6 h-6 rounded cursor-pointer border border-border p-0" title="Свой цвет" />
+                                </div>
+                                {c.colorMark && (
+                                  <button onClick={() => handleSetColor(c.id, "")} className="text-[10px] text-muted-foreground hover:text-red-500 px-1 text-left transition-colors">Сбросить</button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <button onClick={() => handleDelete(c.id)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors" title="Удалить">
+                            <Icon name="Trash2" size={13} />
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}

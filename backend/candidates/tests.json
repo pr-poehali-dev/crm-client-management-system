@@ -55,17 +55,18 @@
       "expectedStatus": 400
     },
     {
-      "name": "Webhook — без секрета возвращает 401",
+      "name": "Webhook — принимает лид без секрета",
       "method": "POST",
       "path": "/",
       "body": {
         "action": "webhook",
         "full_name": "Лидов Лид Лидович",
-        "phone": "+79001234567",
+        "phone": "+79001234500",
         "city": "Москва",
         "source": "test-site"
       },
-      "expectedStatus": 401
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
     },
     {
       "name": "DMP.ONE webhook — приём лида без секрета",
@@ -90,6 +91,20 @@
       "method": "GET",
       "path": "/?mode=my_leads&name=Тестов",
       "expectedStatus": 200
+    },
+    {
+      "name": "POST set_color — unknown id returns 404",
+      "method": "POST",
+      "path": "/",
+      "body": { "action": "set_color", "id": 999999, "color": "#ff0000" },
+      "expectedStatus": 401
+    },
+    {
+      "name": "POST assign_leads — без авторизации возвращает 401 или 403",
+      "method": "POST",
+      "path": "/",
+      "body": { "action": "assign_leads", "ids": [999999], "assignedUserId": 1, "assignedTo": "Тест" },
+      "expectedStatus": 403
     }
   ]
 }

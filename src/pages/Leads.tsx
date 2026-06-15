@@ -34,6 +34,7 @@ interface Lead {
   callResult: string;
   callComment: string;
   assignedTo: string;
+  colorMark: string;
 }
 
 interface CallLogEntry {
@@ -56,6 +57,7 @@ interface ApiLead {
   call_result: string;
   call_comment: string;
   assigned_to: string;
+  color_mark: string;
 }
 
 function fromApi(r: ApiLead): Lead {
@@ -71,6 +73,7 @@ function fromApi(r: ApiLead): Lead {
     callResult: r.call_result || "",
     callComment: r.call_comment || "",
     assignedTo: r.assigned_to || "",
+    colorMark: r.color_mark || "",
   };
 }
 
@@ -112,8 +115,20 @@ export default function Leads() {
   const [assignName, setAssignName] = useState("");
   const [callLog, setCallLog] = useState<CallLogEntry[]>([]);
   const [callLogLoading, setCallLogLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkAssignPopup, setBulkAssignPopup] = useState(false);
+  const [bulkAssignName, setBulkAssignName] = useState("");
+  const [bulkAssigning, setBulkAssigning] = useState(false);
+  const [colorPickerId, setColorPickerId] = useState<number | null>(null);
   const { unreadCount } = useUnread(token, user?.id);
   useBadge(unreadCount);
+
+  useEffect(() => {
+    if (colorPickerId === null) return;
+    const close = () => setColorPickerId(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [colorPickerId]);
 
   const loadCallLog = useCallback(async (candidateId: number) => {
     setCallLogLoading(true);
@@ -225,6 +240,52 @@ export default function Leads() {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
       body: JSON.stringify({ action: "set_call_result", id, result: lead?.callResult || "", comment }),
+    });
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const uncalledFiltered = filtered.filter((l) => !l.called && !l.callResult);
+    if (uncalledFiltered.every((l) => selectedIds.has(l.id))) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(uncalledFiltered.map((l) => l.id)));
+    }
+  };
+
+  const handleBulkAssign = async () => {
+    const name = bulkAssignName.trim();
+    if (!name || selectedIds.size === 0) return;
+    setBulkAssigning(true);
+    try {
+      await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+        body: JSON.stringify({ action: "assign_leads", ids: Array.from(selectedIds), assignedTo: name }),
+      });
+      setLeads((prev) => prev.map((l) => selectedIds.has(l.id) ? { ...l, assignedTo: name } : l));
+      setSelectedIds(new Set());
+      setBulkAssignPopup(false);
+      setBulkAssignName("");
+    } finally {
+      setBulkAssigning(false);
+    }
+  };
+
+  const handleSetColor = async (id: number, color: string) => {
+    setLeads((prev) => prev.map((l) => l.id === id ? { ...l, colorMark: color } : l));
+    setColorPickerId(null);
+    await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+      body: JSON.stringify({ action: "set_color", id, color }),
     });
   };
 
@@ -348,6 +409,40 @@ export default function Leads() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+
+      {/* Bulk assign popup */}
+      {bulkAssignPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setBulkAssignPopup(false)}>
+          <div className="bg-white border border-blue-300 rounded-xl shadow-2xl p-6 flex flex-col gap-4 w-[400px] max-w-[95vw]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-bold text-foreground">Назначить лиды сотруднику</div>
+              <button onClick={() => setBulkAssignPopup(false)} className="text-muted-foreground hover:text-foreground"><Icon name="X" size={16} /></button>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Выбрано лидов: <b>{selectedIds.size}</b>. Укажите ФИО сотрудника, которому их назначить.
+            </div>
+            <input
+              autoFocus
+              value={bulkAssignName}
+              onChange={(e) => setBulkAssignName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleBulkAssign(); if (e.key === "Escape") setBulkAssignPopup(false); }}
+              placeholder="Иванов Иван Иванович"
+              className="border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+            />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setBulkAssignPopup(false)} className="text-xs px-3 py-1.5 rounded border border-border hover:bg-muted transition-colors">Отмена</button>
+              <button
+                onClick={handleBulkAssign}
+                disabled={!bulkAssignName.trim() || bulkAssigning}
+                className="text-xs px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white transition-colors flex items-center gap-1.5"
+              >
+                {bulkAssigning && <Icon name="Loader2" size={12} className="animate-spin" />}
+                Назначить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Assign employee popup */}
       {assignPopup && (
@@ -504,6 +599,15 @@ export default function Leads() {
         <span className="text-xs text-muted-foreground">
           Показано: <b className="text-foreground">{filtered.length}</b> из {leads.length}
         </span>
+        {isAdmin && selectedIds.size > 0 && (
+          <button
+            onClick={() => setBulkAssignPopup(true)}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+          >
+            <Icon name="UserPlus" size={13} />
+            Назначить выбранные ({selectedIds.size})
+          </button>
+        )}
         <div className="ml-auto flex items-center gap-2">
           {importResult && (
             <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded">
@@ -557,9 +661,20 @@ export default function Leads() {
             <button onClick={loadLeads} className="text-xs underline hover:text-foreground transition-colors">Повторить</button>
           </div>
         ) : (
-          <table className="w-full text-xs border-collapse" style={{ minWidth: "820px" }}>
+          <table className="w-full text-xs border-collapse" style={{ minWidth: "880px" }}>
             <thead>
               <tr style={{ background: "hsl(217, 60%, 22%)" }}>
+                {isAdmin && (
+                  <th className="px-3 py-2 w-8">
+                    <input
+                      type="checkbox"
+                      className="cursor-pointer"
+                      checked={filtered.filter((l) => !l.called && !l.callResult).length > 0 && filtered.filter((l) => !l.called && !l.callResult).every((l) => selectedIds.has(l.id))}
+                      onChange={toggleSelectAll}
+                      title="Выбрать все непрозвоненные"
+                    />
+                  </th>
+                )}
                 {["№", "ФИО", "Телефон", "Город", "Гражданство", "Примечание", "Дата", "Результат", "Кто звонил", "Комментарий", ""].map((h, i) => (
                   <th key={i} className="text-left px-3 py-2 font-medium text-xs tracking-wide text-white/80 border-b border-white/10 whitespace-nowrap">{h}</th>
                 ))}
@@ -568,14 +683,31 @@ export default function Leads() {
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="text-center py-20 text-muted-foreground">
+                  <td colSpan={isAdmin ? 12 : 11} className="text-center py-20 text-muted-foreground">
                     <Icon name="Inbox" size={36} className="mx-auto mb-3 opacity-25" />
                     <div className="text-sm">Нет лидов. Они появятся здесь после заявок с сайта.</div>
                   </td>
                 </tr>
               )}
-              {filtered.map((l, idx) => (
-                <tr key={l.id} className="border-b border-border hover:bg-muted/40 transition-colors group animate-fade-in bg-white">
+              {filtered.map((l, idx) => {
+                const isUncalled = !l.called && !l.callResult;
+                const rowBg = l.colorMark ? l.colorMark + "22" : undefined;
+                const rowBorder = l.colorMark ? `2px solid ${l.colorMark}44` : undefined;
+                return (
+                <tr key={l.id} className="border-b border-border hover:bg-muted/40 transition-colors group animate-fade-in" style={{ background: rowBg || "white", borderLeft: rowBorder }}>
+                  {isAdmin && (
+                    <td className="px-3 py-2">
+                      {isUncalled && (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(l.id)}
+                          onChange={() => toggleSelect(l.id)}
+                          className="cursor-pointer"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      )}
+                    </td>
+                  )}
                   <td className="px-3 py-2 text-muted-foreground font-mono">{idx + 1}</td>
                   <td className="px-3 py-2 font-semibold whitespace-nowrap max-w-[160px] truncate">{l.fullName || <span className="text-muted-foreground italic">Без имени</span>}</td>
                   <td className="px-3 py-2 whitespace-nowrap">
@@ -654,14 +786,41 @@ export default function Leads() {
                         <Icon name={convertingId === l.id ? "Loader2" : "UserCheck"} size={13} className={convertingId === l.id ? "animate-spin" : ""} />
                       </button>
                       {isAdmin && (
-                        <button onClick={() => handleDelete(l.id)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors" title="Удалить">
-                          <Icon name="Trash2" size={13} />
-                        </button>
+                        <>
+                          <div className="relative">
+                            <button
+                              onClick={() => setColorPickerId(colorPickerId === l.id ? null : l.id)}
+                              className="p-1 rounded hover:bg-purple-50 transition-colors"
+                              title="Цвет пометки"
+                              style={{ color: l.colorMark || "#94a3b8" }}
+                            >
+                              <Icon name="Palette" size={13} />
+                            </button>
+                            {colorPickerId === l.id && (
+                              <div className="absolute right-0 bottom-7 z-50 bg-white border border-border rounded-lg shadow-xl p-2 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                <div className="text-[10px] text-muted-foreground mb-1 font-medium px-1">Цвет строки</div>
+                                <div className="flex gap-1.5 flex-wrap w-[136px]">
+                                  {["#ef4444","#f97316","#eab308","#22c55e","#3b82f6","#8b5cf6","#ec4899","#14b8a6"].map((c) => (
+                                    <button key={c} onClick={() => handleSetColor(l.id, c)} className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110" style={{ background: c, borderColor: l.colorMark === c ? "#1e293b" : "transparent" }} title={c} />
+                                  ))}
+                                  <input type="color" value={l.colorMark || "#3b82f6"} onChange={(e) => handleSetColor(l.id, e.target.value)} className="w-6 h-6 rounded cursor-pointer border border-border p-0" title="Свой цвет" />
+                                </div>
+                                {l.colorMark && (
+                                  <button onClick={() => handleSetColor(l.id, "")} className="text-[10px] text-muted-foreground hover:text-red-500 px-1 text-left transition-colors">Сбросить</button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <button onClick={() => handleDelete(l.id)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors" title="Удалить">
+                            <Icon name="Trash2" size={13} />
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
