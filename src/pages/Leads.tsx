@@ -120,6 +120,7 @@ export default function Leads() {
   const [bulkAssignName, setBulkAssignName] = useState("");
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const [colorPickerId, setColorPickerId] = useState<number | null>(null);
+  const [colorPickerPos, setColorPickerPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const { unreadCount } = useUnread(token, user?.id);
   useBadge(unreadCount);
 
@@ -129,6 +130,12 @@ export default function Leads() {
     const timer = setTimeout(() => document.addEventListener("click", close), 0);
     return () => { clearTimeout(timer); document.removeEventListener("click", close); };
   }, [colorPickerId]);
+
+  const openColorPicker = (id: number, e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setColorPickerPos({ x: rect.left, y: rect.bottom + 4 });
+    setColorPickerId(colorPickerId === id ? null : id);
+  };
 
   const loadCallLog = useCallback(async (candidateId: number) => {
     setCallLogLoading(true);
@@ -787,30 +794,14 @@ export default function Leads() {
                       </button>
                       {isAdmin && (
                         <>
-                          <div className="relative">
-                            <button
-                              onClick={() => setColorPickerId(colorPickerId === l.id ? null : l.id)}
-                              className="p-1 rounded hover:bg-purple-50 transition-colors"
-                              title="Цвет пометки"
-                              style={{ color: l.colorMark || "#94a3b8" }}
-                            >
-                              <Icon name="Palette" size={13} />
-                            </button>
-                            {colorPickerId === l.id && (
-                              <div className="absolute right-full top-0 mr-1 z-50 bg-white border border-border rounded-lg shadow-xl p-2 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                <div className="text-[10px] text-muted-foreground mb-1 font-medium px-1">Цвет строки</div>
-                                <div className="flex gap-1.5 flex-wrap w-[136px]">
-                                  {["#ef4444","#f97316","#eab308","#22c55e","#3b82f6","#8b5cf6","#ec4899","#14b8a6"].map((c) => (
-                                    <button key={c} onClick={() => handleSetColor(l.id, c)} className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110" style={{ background: c, borderColor: l.colorMark === c ? "#1e293b" : "transparent" }} title={c} />
-                                  ))}
-                                  <input type="color" value={l.colorMark || "#3b82f6"} onChange={(e) => handleSetColor(l.id, e.target.value)} className="w-6 h-6 rounded cursor-pointer border border-border p-0" title="Свой цвет" />
-                                </div>
-                                {l.colorMark && (
-                                  <button onClick={() => handleSetColor(l.id, "")} className="text-[10px] text-muted-foreground hover:text-red-500 px-1 text-left transition-colors">Сбросить</button>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                          <button
+                            onClick={(e) => openColorPicker(l.id, e)}
+                            className="p-1 rounded hover:bg-purple-50 transition-colors"
+                            title="Цвет пометки"
+                            style={{ color: l.colorMark || "#94a3b8" }}
+                          >
+                            <Icon name="Palette" size={13} />
+                          </button>
                           <button onClick={() => handleDelete(l.id)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors" title="Удалить">
                             <Icon name="Trash2" size={13} />
                           </button>
@@ -952,6 +943,30 @@ export default function Leads() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Color picker portal */}
+      {colorPickerId !== null && (() => {
+        const l = leads.find((x) => x.id === colorPickerId);
+        if (!l) return null;
+        return (
+          <div
+            className="fixed z-[9999] bg-white border border-border rounded-lg shadow-xl p-2 flex flex-col gap-1.5"
+            style={{ top: colorPickerPos.y, left: Math.min(colorPickerPos.x, window.innerWidth - 160) }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-[10px] text-muted-foreground mb-1 font-medium px-1">Цвет строки</div>
+            <div className="flex gap-1.5 flex-wrap w-[136px]">
+              {["#ef4444","#f97316","#eab308","#22c55e","#3b82f6","#8b5cf6","#ec4899","#14b8a6"].map((c) => (
+                <button key={c} onClick={() => handleSetColor(l.id, c)} className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110" style={{ background: c, borderColor: l.colorMark === c ? "#1e293b" : "transparent" }} />
+              ))}
+              <input type="color" value={l.colorMark || "#3b82f6"} onChange={(e) => handleSetColor(l.id, e.target.value)} className="w-6 h-6 rounded cursor-pointer border border-border p-0" title="Свой цвет" />
+            </div>
+            {l.colorMark && (
+              <button onClick={() => handleSetColor(l.id, "")} className="text-[10px] text-muted-foreground hover:text-red-500 px-1 text-left transition-colors">Сбросить</button>
+            )}
+          </div>
+        );
+      })()}
 
     </div>
   );
