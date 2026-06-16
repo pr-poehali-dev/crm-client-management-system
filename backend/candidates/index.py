@@ -723,6 +723,70 @@ def action_push_vapid_key():
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"publicKey": public_key})}
 
 
+def action_help_get(conn):
+    """Получить разделы инструкции."""
+    cur = conn.cursor()
+    cur.execute(f"SELECT id, sort_order, icon, title, items FROM {SCHEMA}.help_sections ORDER BY sort_order ASC")
+    rows = cur.fetchall()
+    cur.close()
+    result = [{"id": r[0], "sortOrder": r[1], "icon": r[2], "title": r[3], "items": r[4] if isinstance(r[4], list) else json.loads(r[4])} for r in rows]
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps(result, ensure_ascii=False)}
+
+
+def action_help_save(body, headers, conn):
+    """Сохранить изменения в разделе инструкции. Только для администраторов."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
+    section_id = int(body.get("id", 0))
+    title = body.get("title", "")
+    icon = body.get("icon", "Info")
+    items = body.get("items", [])
+    cur = conn.cursor()
+    cur.execute(
+        f"UPDATE {SCHEMA}.help_sections SET title={q(title)}, icon={q(icon)}, items={q(json.dumps(items, ensure_ascii=False))} WHERE id={section_id} RETURNING id"
+    )
+    row = cur.fetchone()
+    if not row:
+        cur.close()
+        return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Not found"})}
+    conn.commit()
+    cur.close()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
+
+
+def action_help_add_section(body, headers, conn):
+    """Добавить новый раздел инструкции. Только для администраторов."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
+    title = body.get("title", "Новый раздел")
+    icon = body.get("icon", "Info")
+    cur = conn.cursor()
+    cur.execute(f"SELECT COALESCE(MAX(sort_order),0)+1 FROM {SCHEMA}.help_sections")
+    next_order = cur.fetchone()[0]
+    cur.execute(
+        f"INSERT INTO {SCHEMA}.help_sections (sort_order, icon, title, items) VALUES ({next_order},{q(icon)},{q(title)},'[]') RETURNING id, sort_order, icon, title, items"
+    )
+    row = cur.fetchone()
+    conn.commit()
+    cur.close()
+    return {"statusCode": 201, "headers": CORS, "body": json.dumps({"id": row[0], "sortOrder": row[1], "icon": row[2], "title": row[3], "items": []}, ensure_ascii=False)}
+
+
+def action_help_delete_section(body, headers, conn):
+    """Удалить раздел инструкции. Только для администраторов."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
+    section_id = int(body.get("id", 0))
+    cur = conn.cursor()
+    cur.execute(f"DELETE FROM {SCHEMA}.help_sections WHERE id={section_id}")
+    conn.commit()
+    cur.close()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
+
+
 def action_announcements_post(body, user, conn):
     if user["role"] != "admin":
         return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Forbidden"})}
@@ -797,6 +861,14 @@ def handler(event: dict, context) -> dict:
         try:
             cur = conn.cursor()
             return action_get_call_log(query_params, cur)
+        finally:
+            conn.close()
+
+    # GET — инструкция
+    if query_params.get("mode") == "help":
+        conn = get_conn()
+        try:
+            return action_help_get(conn)
         finally:
             conn.close()
 
@@ -887,6 +959,12 @@ def handler(event: dict, context) -> dict:
                 return action_assign_leads(body, cur, conn, headers)
             if action == "set_color":
                 return action_set_color(body, cur, conn, headers)
+            if action == "help_save":
+                return action_help_save(body, headers, conn)
+            if action == "help_add_section":
+                return action_help_add_section(body, headers, conn)
+            if action == "help_delete_section":
+                return action_help_delete_section(body, headers, conn)
             return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": f"Unknown action: {action}"})}
         finally:
             cur.close()

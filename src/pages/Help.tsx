@@ -1,96 +1,125 @@
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBadge } from "@/hooks/useBadge";
 import { useUnread } from "@/hooks/useUnread";
+import func2url from "../../backend/func2url.json";
 
-interface Section {
-  icon: string;
-  title: string;
-  items: { label: string; desc: string }[];
+const API = (func2url as Record<string, string>)["candidates"];
+
+interface HelpItem {
+  label: string;
+  desc: string;
 }
 
-const sections: Section[] = [
-  {
-    icon: "Users",
-    title: "Кандидаты",
-    items: [
-      { label: "Добавить кандидата", desc: "Нажмите кнопку «Добавить кандидата» в правом верхнем углу. Заполните форму: ФИО, телефон, город, гражданство, дату рождения и прочие данные. Прикрепите фото документов, билетов или контракта — файлы загружаются прямо из формы." },
-      { label: "Редактировать запись", desc: "Нажмите иконку карандаша (✏️) в строке кандидата. Откроется та же форма с уже заполненными данными — измените нужное и сохраните." },
-      { label: "Просмотр подробностей", desc: "Нажмите иконку глаза (👁) — откроется карточка кандидата со всей информацией и прикреплёнными файлами." },
-      { label: "Удалить кандидата", desc: "Кнопка удаления (🗑) доступна только администраторам. После нажатия запись удаляется без возможности восстановления." },
-      { label: "Отметить прозвон", desc: "В столбце «Прозвонен» есть чекбокс — нажмите его, чтобы отметить кандидата как прозвоненного (станет зелёным). Нажмите снова, чтобы снять отметку." },
-    ],
-  },
-  {
-    icon: "Search",
-    title: "Поиск и фильтры",
-    items: [
-      { label: "Поиск по ФИО или сотруднику", desc: "Введите имя в строку поиска вверху страницы — таблица мгновенно фильтруется. Поиск работает по ФИО кандидата, имени сотрудника и возрасту." },
-      { label: "Фильтр «Непрозвоненные»", desc: "Кнопка «Непрозвоненные» в панели инструментов скрывает всех, кому уже позвонили. Удобно при ежедневном обзвоне — только те, кто ещё ждёт звонка." },
-      { label: "Обновить список", desc: "Кнопка с иконкой обновления (🔄) справа перезагружает данные из базы — полезно если коллеги одновременно работают в системе." },
-    ],
-  },
-  {
-    icon: "FileDown",
-    title: "Выгрузка в Excel",
-    items: [
-      { label: "Скачать таблицу", desc: "Нажмите кнопку «Excel» в панели инструментов. В файл попадут только те записи, которые видны на экране — с учётом поиска и фильтров. Файл скачивается автоматически." },
-    ],
-  },
-  {
-    icon: "Zap",
-    title: "Лиды с сайта",
-    items: [
-      { label: "Что такое лиды?", desc: "Лиды — это заявки от кандидатов, оставленные на внешнем сайте. Число новых лидов отображается оранжевым значком рядом с кнопкой «Лиды» в шапке." },
-      { label: "Обработка лидов", desc: "Перейдите в раздел «Лиды». Вы можете просмотреть заявку, отметить её как прозвоненную или удалить. Лиды также выгружаются в Excel." },
-    ],
-  },
-  {
-    icon: "UserCog",
-    title: "Пользователи (только для администратора)",
-    items: [
-      { label: "Создать пользователя", desc: "В разделе «Пользователи» нажмите «Добавить пользователя». Укажите ФИО, логин, пароль и роль (Сотрудник или Администратор)." },
-      { label: "Сменить пароль пользователя", desc: "Администратор может сбросить пароль любого пользователя. Сотрудник может сменить только свой пароль — через своё имя в шапке страницы." },
-      { label: "Удалить пользователя", desc: "Нажмите иконку корзины рядом с пользователем. Удалённый пользователь потеряет доступ к системе немедленно." },
-    ],
-  },
-  {
-    icon: "Phone",
-    title: "Телефония (Манго Офис)",
-    items: [
-      { label: "Как позвонить лиду", desc: "Перейдите в раздел «Лиды». В столбце «Телефон» нажмите на номер — он выделен синим цветом. Откроется приложение Манго Офис, которое автоматически наберёт номер. Если Манго не установлен, его нужно скачать и установить заранее." },
-      { label: "Установка Манго Офис на компьютер", desc: "Скачайте приложение Манго Офис с официального сайта mango-office.ru. После установки войдите в приложение под своими рабочими учётными данными. После этого клик на номер в CRM будет автоматически открывать Манго и набирать номер." },
-      { label: "Если при клике на номер Windows спрашивает «Выбрать приложение»", desc: "Это значит, что Манго Офис не установлен или не настроен как приложение для звонков по умолчанию. Установите Манго Офис и при первом запуске выберите «Всегда открывать Манго Офис» — тогда звонки будут открываться автоматически." },
-      { label: "Фиксация результата звонка", desc: "После звонка лиду нажмите кнопку «Выбрать» в столбце «Результат» напротив нужного лида. Выберите один из вариантов: Недозвон, Занято, Отказ, Заинтересован, Перезвонит или Дубль. Результат сохранится и будет виден всем сотрудникам." },
-      { label: "Фильтр «Непрозвоненные»", desc: "Кнопка «Непрозвоненные» вверху страницы Лидов показывает только те заявки, по которым ещё не был выбран результат звонка. Удобно использовать в начале рабочего дня, чтобы видеть очередь на обзвон." },
-      { label: "Входящий звонок автоматически создаёт лида", desc: "Если клиент сам звонит на рабочий номер компании, система Манго передаёт этот звонок в CRM и автоматически создаёт нового лида с номером телефона. Вы увидите его в разделе «Лиды» с уведомлением." },
-    ],
-  },
-  {
-    icon: "Smartphone",
-    title: "Установка приложения на телефон",
-    items: [
-      { label: "iPhone (Safari)", desc: "1. Откройте сайт в браузере Safari. 2. Нажмите кнопку «Поделиться» (квадрат со стрелкой вверх) внизу экрана. 3. Выберите «На экран «Домой»». 4. Нажмите «Добавить». Приложение появится на рабочем столе как обычное." },
-      { label: "Android — Chrome", desc: "1. Откройте сайт в браузере Chrome. 2. Нажмите «⋮» (три точки) в правом верхнем углу. 3. Выберите «Добавить на главный экран». 4. Нажмите «Добавить»." },
-      { label: "Android — Яндекс Браузер", desc: "1. Откройте сайт в Яндекс Браузере. 2. Нажмите «⋮» (три точки) внизу экрана. 3. Выберите «Добавить на рабочий стол». 4. Нажмите «Добавить»." },
-    ],
-  },
-  {
-    icon: "User",
-    title: "Личный кабинет",
-    items: [
-      { label: "Сменить пароль", desc: "Нажмите на своё имя в правом верхнем углу — откроется форма смены пароля. Введите текущий и новый пароль." },
-      { label: "Выйти из системы", desc: "Нажмите иконку выхода (стрелка вправо) рядом со своим именем. Сессия будет завершена." },
-    ],
-  },
-];
+interface HelpSection {
+  id: number;
+  sortOrder: number;
+  icon: string;
+  title: string;
+  items: HelpItem[];
+}
 
 export default function Help() {
   const navigate = useNavigate();
   const { token, user } = useAuth();
   const { unreadCount } = useUnread(token, user?.id);
   useBadge(unreadCount);
+
+  const isAdmin = user?.role === "admin";
+
+  const [sections, setSections] = useState<HelpSection[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState<number | null>(null);
+  const [draft, setDraft] = useState<Record<number, HelpSection>>({});
+
+  const loadHelp = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}?mode=help`);
+      const data: HelpSection[] = await res.json();
+      setSections(data);
+      const d: Record<number, HelpSection> = {};
+      data.forEach((s) => { d[s.id] = JSON.parse(JSON.stringify(s)); });
+      setDraft(d);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadHelp(); }, [loadHelp]);
+
+  const handleSaveSection = async (id: number) => {
+    const s = draft[id];
+    if (!s) return;
+    setSaving(id);
+    try {
+      await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+        body: JSON.stringify({ action: "help_save", id, title: s.title, icon: s.icon, items: s.items }),
+      });
+      setSections((prev) => prev.map((sec) => sec.id === id ? { ...sec, title: s.title, icon: s.icon, items: s.items } : sec));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleAddSection = async () => {
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+      body: JSON.stringify({ action: "help_add_section", title: "Новый раздел", icon: "Info" }),
+    });
+    const sec: HelpSection = await res.json();
+    setSections((prev) => [...prev, sec]);
+    setDraft((prev) => ({ ...prev, [sec.id]: JSON.parse(JSON.stringify(sec)) }));
+  };
+
+  const handleDeleteSection = async (id: number) => {
+    if (!confirm("Удалить этот раздел?")) return;
+    await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+      body: JSON.stringify({ action: "help_delete_section", id }),
+    });
+    setSections((prev) => prev.filter((s) => s.id !== id));
+    setDraft((prev) => { const d = { ...prev }; delete d[id]; return d; });
+  };
+
+  const updateDraftSection = (id: number, field: keyof HelpSection, value: string) => {
+    setDraft((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
+  };
+
+  const updateDraftItem = (sectionId: number, itemIdx: number, field: keyof HelpItem, value: string) => {
+    setDraft((prev) => {
+      const sec = { ...prev[sectionId] };
+      const items = [...sec.items];
+      items[itemIdx] = { ...items[itemIdx], [field]: value };
+      return { ...prev, [sectionId]: { ...sec, items } };
+    });
+  };
+
+  const addItem = (sectionId: number) => {
+    setDraft((prev) => {
+      const sec = { ...prev[sectionId] };
+      return { ...prev, [sectionId]: { ...sec, items: [...sec.items, { label: "", desc: "" }] } };
+    });
+  };
+
+  const deleteItem = (sectionId: number, itemIdx: number) => {
+    setDraft((prev) => {
+      const sec = { ...prev[sectionId] };
+      const items = sec.items.filter((_, i) => i !== itemIdx);
+      return { ...prev, [sectionId]: { ...sec, items } };
+    });
+  };
+
+  const displaySections = editMode
+    ? sections.map((s) => draft[s.id] || s)
+    : sections;
 
   return (
     <div className="min-h-screen bg-[hsl(210,20%,97%)]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
@@ -116,6 +145,16 @@ export default function Help() {
               </span>
             )}
           </button>
+          {isAdmin && (
+            <button
+              onClick={() => setEditMode((v) => !v)}
+              className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded transition-colors ${editMode ? "bg-amber-400 text-black font-semibold" : "text-white/70 hover:text-white hover:bg-white/10"}`}
+              title={editMode ? "Выйти из режима редактирования" : "Редактировать инструкцию"}
+            >
+              <Icon name={editMode ? "X" : "Pencil"} size={14} />
+              <span className="hidden md:inline">{editMode ? "Завершить" : "Редактировать"}</span>
+            </button>
+          )}
           <button
             onClick={() => navigate("/")}
             className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm px-3 py-1.5 rounded hover:bg-white/10 transition-colors"
@@ -129,29 +168,136 @@ export default function Help() {
       <div className="max-w-3xl mx-auto px-6 py-10 space-y-8">
         <div className="text-center space-y-2 mb-10">
           <h1 className="text-2xl font-bold text-[hsl(217,60%,18%)]">Как пользоваться CRM</h1>
-          <p className="text-muted-foreground text-sm">Здесь собраны ответы на основные вопросы по работе с системой</p>
+          <p className="text-muted-foreground text-sm">
+            {editMode ? "Режим редактирования — изменяйте текст и сохраняйте каждый раздел" : "Здесь собраны ответы на основные вопросы по работе с системой"}
+          </p>
         </div>
 
-        {sections.map((section) => (
-          <div key={section.title} className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-border" style={{ background: "hsl(217, 60%, 22%)" }}>
-              <Icon name={section.icon} size={18} className="text-white/80" />
-              <h2 className="font-semibold text-white text-base">{section.title}</h2>
-            </div>
-            <div className="divide-y divide-border">
-              {section.items.map((item) => (
-                <div key={item.label} className="px-6 py-4">
-                  <div className="font-medium text-sm text-[hsl(217,60%,18%)] mb-1">{item.label}</div>
-                  <div className="text-sm text-muted-foreground leading-relaxed">{item.desc}</div>
-                </div>
-              ))}
-            </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
+            <Icon name="Loader2" size={20} className="animate-spin" />
+            <span className="text-sm">Загрузка...</span>
           </div>
-        ))}
+        ) : (
+          <>
+            {displaySections.map((section) => (
+              <div key={section.id} className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+                {/* Section header */}
+                <div className="flex items-center gap-3 px-6 py-4 border-b border-border" style={{ background: "hsl(217, 60%, 22%)" }}>
+                  {editMode ? (
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <input
+                        value={draft[section.id]?.icon || section.icon}
+                        onChange={(e) => updateDraftSection(section.id, "icon", e.target.value)}
+                        className="w-24 text-xs bg-white/10 border border-white/20 rounded px-2 py-1 text-white placeholder:text-white/40 focus:outline-none"
+                        placeholder="Иконка"
+                        title="Название иконки из lucide-react"
+                      />
+                      <input
+                        value={draft[section.id]?.title || section.title}
+                        onChange={(e) => updateDraftSection(section.id, "title", e.target.value)}
+                        className="flex-1 text-sm font-semibold bg-white/10 border border-white/20 rounded px-2 py-1 text-white placeholder:text-white/40 focus:outline-none"
+                        placeholder="Название раздела"
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <Icon name={section.icon} size={18} className="text-white/80" />
+                      <h2 className="text-white font-semibold text-sm">{section.title}</h2>
+                    </>
+                  )}
+                  {editMode && (
+                    <div className="flex items-center gap-1 ml-auto shrink-0">
+                      <button
+                        onClick={() => handleSaveSection(section.id)}
+                        disabled={saving === section.id}
+                        className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded bg-green-500 hover:bg-green-400 text-white transition-colors disabled:opacity-50"
+                      >
+                        {saving === section.id ? <Icon name="Loader2" size={11} className="animate-spin" /> : <Icon name="Check" size={11} />}
+                        Сохранить
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSection(section.id)}
+                        className="p-1 rounded hover:bg-red-500/30 text-white/50 hover:text-white transition-colors"
+                        title="Удалить раздел"
+                      >
+                        <Icon name="Trash2" size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
 
-        <div className="text-center text-xs text-muted-foreground pt-4">
-          Если что-то непонятно — обратитесь к администратору системы
-        </div>
+                {/* Items */}
+                <div className="divide-y divide-border">
+                  {(editMode ? draft[section.id]?.items : section.items)?.map((item, idx) => (
+                    <div key={idx} className="px-6 py-4">
+                      {editMode ? (
+                        <div className="flex gap-2 items-start">
+                          <div className="flex-1 space-y-2">
+                            <input
+                              value={item.label}
+                              onChange={(e) => updateDraftItem(section.id, idx, "label", e.target.value)}
+                              className="w-full text-sm font-semibold border border-border rounded px-2 py-1 focus:outline-none focus:border-blue-400"
+                              placeholder="Заголовок пункта"
+                            />
+                            <textarea
+                              value={item.desc}
+                              onChange={(e) => updateDraftItem(section.id, idx, "desc", e.target.value)}
+                              rows={3}
+                              className="w-full text-sm text-muted-foreground border border-border rounded px-2 py-1 focus:outline-none focus:border-blue-400 resize-y"
+                              placeholder="Описание пункта"
+                            />
+                          </div>
+                          <button
+                            onClick={() => deleteItem(section.id, idx)}
+                            className="mt-1 p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors shrink-0"
+                            title="Удалить пункт"
+                          >
+                            <Icon name="X" size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 w-5 h-5 rounded-full bg-[hsl(217,60%,22%)] flex items-center justify-center shrink-0">
+                              <Icon name="ChevronRight" size={11} className="text-white" />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-sm text-foreground mb-1">{item.label}</div>
+                              <div className="text-sm text-muted-foreground leading-relaxed">{item.desc}</div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+
+                  {editMode && (
+                    <div className="px-6 py-3">
+                      <button
+                        onClick={() => addItem(section.id)}
+                        className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                      >
+                        <Icon name="Plus" size={13} />
+                        Добавить пункт
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {editMode && (
+              <button
+                onClick={handleAddSection}
+                className="w-full py-3 rounded-xl border-2 border-dashed border-border hover:border-blue-400 text-muted-foreground hover:text-blue-600 text-sm flex items-center justify-center gap-2 transition-colors"
+              >
+                <Icon name="Plus" size={16} />
+                Добавить раздел
+              </button>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

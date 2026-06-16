@@ -105,6 +105,19 @@
       "path": "/",
       "body": { "action": "assign_leads", "ids": [999999], "assignedUserId": 1, "assignedTo": "Тест" },
       "expectedStatus": 403
+    },
+    {
+      "name": "GET help — возвращает разделы инструкции",
+      "method": "GET",
+      "path": "/?mode=help",
+      "expectedStatus": 200
+    },
+    {
+      "name": "POST help_save — без авторизации возвращает 403",
+      "method": "POST",
+      "path": "/",
+      "body": { "action": "help_save", "id": 1, "title": "Тест", "icon": "Info", "items": [] },
+      "expectedStatus": 403
     }
   ]
 }
