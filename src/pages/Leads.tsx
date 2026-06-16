@@ -151,6 +151,7 @@ export default function Leads() {
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const [colorPickerId, setColorPickerId] = useState<number | null>(null);
   const [colorPickerPos, setColorPickerPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [showCallResultPrompt, setShowCallResultPrompt] = useState(false);
   const [leadForm, setLeadForm] = useState(LEAD_EMPTY_FORM);
   const [leadSaving, setLeadSaving] = useState(false);
   const { unreadCount } = useUnread(token, user?.id);
@@ -458,6 +459,7 @@ export default function Leads() {
         arrivalDate: detail.arrivalDate || "",
       });
     }
+    setShowCallResultPrompt(false);
   }, [detailId]);
 
   const handleSaveLead = async () => {
@@ -918,11 +920,37 @@ export default function Leads() {
                         <a href={`tel:${detail.phone}`}
                           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
                           style={{ background: "hsl(220,80%,45%)" }}
+                          onClick={() => { setTimeout(() => setShowCallResultPrompt(true), 3000); }}
                         >
                           <Icon name="Phone" size={15} />
                           {detail.phone}
                         </a>
                         <div className="text-[10px] text-muted-foreground mt-1">Звонок через Mango Office</div>
+
+                        {showCallResultPrompt && (
+                          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="text-xs font-semibold text-blue-800 mb-2 flex items-center gap-1.5">
+                              <Icon name="CheckCircle" size={13} />
+                              Укажите результат звонка
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {CALL_RESULTS.map((r) => (
+                                <button
+                                  key={r.value}
+                                  onClick={() => { handleSetCallResult(detail.id, r.value); setShowCallResultPrompt(false); }}
+                                  className="text-[11px] font-medium px-2 py-1 rounded border transition-all"
+                                  style={detail.callResult === r.value
+                                    ? { ...r.color, outline: "2px solid " + r.color.color, outlineOffset: "1px" }
+                                    : { color: "#888", borderColor: "#e2e8f0", background: "white" }
+                                  }
+                                >
+                                  {r.label}
+                                </button>
+                              ))}
+                            </div>
+                            <button onClick={() => setShowCallResultPrompt(false)} className="text-[10px] text-muted-foreground hover:text-foreground mt-2">Пропустить</button>
+                          </div>
+                        )}
                       </div>
                       {/* Мессенджеры */}
                       <div>
