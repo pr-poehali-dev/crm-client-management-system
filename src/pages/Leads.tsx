@@ -10,6 +10,9 @@ import func2url from "../../backend/func2url.json";
 import * as XLSX from "xlsx";
 import { useBadge } from "@/hooks/useBadge";
 
+const WA_SVG = <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.849L0 24l6.335-1.502A11.933 11.933 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.807 9.807 0 01-5.032-1.388l-.361-.214-3.741.887.936-3.634-.235-.374A9.786 9.786 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>;
+const TG_SVG = <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.16 13.28l-2.963-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.991.279z"/></svg>;
+
 
 const API = (func2url as Record<string, string>)["candidates"];
 
@@ -35,7 +38,20 @@ interface Lead {
   callComment: string;
   assignedTo: string;
   colorMark: string;
+  birthDate?: string;
+  age?: string;
+  criminalRecord?: string;
+  chronicDiseases?: string;
+  dispensaryRecord?: string;
+  relations?: string;
+  arrivalDate?: string;
 }
+
+const LEAD_EMPTY_FORM = {
+  fullName: "", phone: "", city: "", citizenship: "", birthDate: "", age: "",
+  criminalRecord: "", chronicDiseases: "", dispensaryRecord: "",
+  notes: "", relations: "", arrivalDate: "",
+};
 
 interface CallLogEntry {
   id: number;
@@ -58,6 +74,13 @@ interface ApiLead {
   call_comment: string;
   assigned_to: string;
   color_mark: string;
+  birth_date?: string;
+  age?: string;
+  criminal_record?: string;
+  chronic_diseases?: string;
+  dispensary_record?: string;
+  relations?: string;
+  arrival_date?: string;
 }
 
 function fromApi(r: ApiLead): Lead {
@@ -74,6 +97,13 @@ function fromApi(r: ApiLead): Lead {
     callComment: r.call_comment || "",
     assignedTo: r.assigned_to || "",
     colorMark: r.color_mark || "",
+    birthDate: r.birth_date || "",
+    age: r.age || "",
+    criminalRecord: r.criminal_record || "",
+    chronicDiseases: r.chronic_diseases || "",
+    dispensaryRecord: r.dispensary_record || "",
+    relations: r.relations || "",
+    arrivalDate: r.arrival_date || "",
   };
 }
 
@@ -121,6 +151,8 @@ export default function Leads() {
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const [colorPickerId, setColorPickerId] = useState<number | null>(null);
   const [colorPickerPos, setColorPickerPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [leadForm, setLeadForm] = useState(LEAD_EMPTY_FORM);
+  const [leadSaving, setLeadSaving] = useState(false);
   const { unreadCount } = useUnread(token, user?.id);
   useBadge(unreadCount);
 
@@ -408,6 +440,48 @@ export default function Leads() {
 
   const detail = detailId !== null ? leads.find((l) => l.id === detailId) : null;
   const commentLead = commentEditId !== null ? leads.find((l) => l.id === commentEditId) : null;
+
+  useEffect(() => {
+    if (detail) {
+      setLeadForm({
+        fullName: detail.fullName || "",
+        phone: detail.phone || "",
+        city: detail.city || "",
+        citizenship: detail.citizenship || "",
+        birthDate: detail.birthDate || "",
+        age: detail.age || "",
+        criminalRecord: detail.criminalRecord || "",
+        chronicDiseases: detail.chronicDiseases || "",
+        dispensaryRecord: detail.dispensaryRecord || "",
+        notes: detail.notes || "",
+        relations: detail.relations || "",
+        arrivalDate: detail.arrivalDate || "",
+      });
+    }
+  }, [detailId]);
+
+  const handleSaveLead = async () => {
+    if (!detail) return;
+    setLeadSaving(true);
+    try {
+      await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+        body: JSON.stringify({
+          action: "update",
+          id: detail.id,
+          ...leadForm,
+          docPhotos: [], relationPhotos: [], tickets: [], contractPhotos: [],
+          hasInn: false, hasSnils: false,
+          employeeName: detail.assignedTo || "",
+          company: "",
+        }),
+      });
+      setLeads((prev) => prev.map((l) => l.id === detail.id ? { ...l, ...leadForm } : l));
+    } finally {
+      setLeadSaving(false);
+    }
+  };
 
   const closeComment = () => {
     setCommentDraft(commentLead?.callComment || "");
@@ -819,7 +893,7 @@ export default function Leads() {
 
       {/* Detail Modal */}
       <Dialog open={detailId !== null} onOpenChange={() => setDetailId(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           {detail && (
             <>
               <DialogHeader>
@@ -827,104 +901,96 @@ export default function Leads() {
                   <Icon name="UserCircle" size={16} />{detail.fullName || "Лид без имени"}
                 </DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 pt-2">
-                <div className="grid grid-cols-2 gap-3">
-                  <InfoRow label="ФИО" value={detail.fullName} />
-                  <div>
-                    <div className="text-xs text-muted-foreground font-medium mb-0.5">Телефон</div>
-                    {(user?.mangoVerified || user?.role === "admin") ? (
-                      detail.phone ? (
-                        <div className="text-sm font-medium flex items-center gap-1 select-all">
-                          {detail.phone}
-                        </div>
-                      ) : <div className="text-sm">—</div>
-                    ) : (
-                      <div className="text-sm text-muted-foreground flex items-center gap-1">
-                        <Icon name="Lock" size={13} />
-                        Скрыт
+              <div className="space-y-5 pt-2">
+
+                {/* Мессенджеры — вверху, если есть телефон */}
+                {(user?.mangoVerified || user?.role === "admin") && detail.phone && (() => {
+                  const rawPhone = detail.phone.replace(/\D/g, "");
+                  const greeting = encodeURIComponent("Здравствуйте! Вам пишут по поводу трудоустройства.");
+                  return (
+                    <div className="bg-muted/40 rounded-lg p-3">
+                      <div className="text-xs text-muted-foreground font-medium mb-2 flex items-center gap-1.5">
+                        <Icon name="MessageCircle" size={13} />
+                        Написать в мессенджер
                       </div>
-                    )}
+                      <div className="flex flex-wrap gap-2">
+                        <a href={`https://wa.me/${rawPhone}`} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
+                          style={{ background: "#25D366" }}>{WA_SVG} WhatsApp</a>
+                        <a href={`https://wa.me/${rawPhone}?text=${greeting}`} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-opacity hover:opacity-90"
+                          style={{ color: "#25D366", borderColor: "#25D366" }}>{WA_SVG} + текст</a>
+                        <a href={`https://t.me/+${rawPhone}`} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
+                          style={{ background: "#2AABEE" }}>{TG_SVG} Telegram</a>
+                        <a href={`https://t.me/+${rawPhone}?text=${greeting}`} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-opacity hover:opacity-90"
+                          style={{ color: "#2AABEE", borderColor: "#2AABEE" }}>{TG_SVG} + текст</a>
+                        <a href={`https://max.ru/call/${rawPhone}`} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
+                          style={{ background: "#005FF9" }}><Icon name="MessageCircle" size={13} /> MAX</a>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Форма редактирования */}
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Icon name="Pencil" size={13} /> Данные лида
                   </div>
-                  {/* Мессенджеры */}
-                  {(user?.mangoVerified || user?.role === "admin") && detail.phone && (() => {
-                    const rawPhone = detail.phone.replace(/\D/g, "");
-                    const greeting = encodeURIComponent(`Здравствуйте! Вам пишут по поводу трудоустройства.`);
-                    return (
-                      <div className="col-span-2">
-                        <div className="text-xs text-muted-foreground font-medium mb-1.5">Написать в мессенджер</div>
-                        <div className="flex flex-wrap gap-2">
-                          {/* WhatsApp — просто чат */}
-                          <a
-                            href={`https://wa.me/${rawPhone}`}
-                            target="_blank" rel="noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
-                            style={{ background: "#25D366" }}
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.849L0 24l6.335-1.502A11.933 11.933 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.807 9.807 0 01-5.032-1.388l-.361-.214-3.741.887.936-3.634-.235-.374A9.786 9.786 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
-                            WhatsApp
-                          </a>
-                          {/* WhatsApp с текстом */}
-                          <a
-                            href={`https://wa.me/${rawPhone}?text=${greeting}`}
-                            target="_blank" rel="noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-90 border"
-                            style={{ color: "#25D366", borderColor: "#25D366" }}
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.849L0 24l6.335-1.502A11.933 11.933 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.807 9.807 0 01-5.032-1.388l-.361-.214-3.741.887.936-3.634-.235-.374A9.786 9.786 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
-                            + текст
-                          </a>
-                          {/* Telegram — просто чат */}
-                          <a
-                            href={`https://t.me/+${rawPhone}`}
-                            target="_blank" rel="noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
-                            style={{ background: "#2AABEE" }}
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.16 13.28l-2.963-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.991.279z"/></svg>
-                            Telegram
-                          </a>
-                          {/* Telegram с текстом */}
-                          <a
-                            href={`https://t.me/+${rawPhone}?text=${greeting}`}
-                            target="_blank" rel="noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-90 border"
-                            style={{ color: "#2AABEE", borderColor: "#2AABEE" }}
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.16 13.28l-2.963-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.991.279z"/></svg>
-                            + текст
-                          </a>
-                          {/* MAX */}
-                          <a
-                            href={`https://max.ru/call/${rawPhone}`}
-                            target="_blank" rel="noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
-                            style={{ background: "#005FF9" }}
-                          >
-                            <Icon name="MessageCircle" size={14} />
-                            MAX
-                          </a>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                  <InfoRow label="Город" value={detail.city} />
-                  <InfoRow label="Гражданство" value={detail.citizenship} />
-                  <InfoRow label="Дата заявки" value={detail.createdAt ? new Date(detail.createdAt).toLocaleDateString("ru-RU") : ""} />
-                  <div>
-                    <div className="text-xs text-muted-foreground font-medium mb-1">Результат звонка</div>
-                    <CallResultBadge result={detail.callResult} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2 space-y-1">
+                      <div className="text-xs text-muted-foreground font-medium">ФИО</div>
+                      <Input value={leadForm.fullName} onChange={(e) => setLeadForm({ ...leadForm, fullName: e.target.value })} placeholder="Фамилия Имя Отчество" className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground font-medium">Телефон</div>
+                      <Input value={leadForm.phone} onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })} placeholder="+7..." className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground font-medium">Дата рождения</div>
+                      <Input value={leadForm.birthDate} onChange={(e) => setLeadForm({ ...leadForm, birthDate: e.target.value })} placeholder="дд.мм.гггг" className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground font-medium">Город</div>
+                      <Input value={leadForm.city} onChange={(e) => setLeadForm({ ...leadForm, city: e.target.value })} placeholder="Город" className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground font-medium">Гражданство</div>
+                      <Input value={leadForm.citizenship} onChange={(e) => setLeadForm({ ...leadForm, citizenship: e.target.value })} placeholder="РФ / другое" className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground font-medium">Судимость</div>
+                      <Input value={leadForm.criminalRecord} onChange={(e) => setLeadForm({ ...leadForm, criminalRecord: e.target.value })} placeholder="Нет / есть" className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground font-medium">Хр. болезни</div>
+                      <Input value={leadForm.chronicDiseases} onChange={(e) => setLeadForm({ ...leadForm, chronicDiseases: e.target.value })} placeholder="Нет / есть" className="h-8 text-sm" />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <div className="text-xs text-muted-foreground font-medium">Заметки</div>
+                      <textarea
+                        value={leadForm.notes}
+                        onChange={(e) => setLeadForm({ ...leadForm, notes: e.target.value })}
+                        placeholder="Заметки..."
+                        rows={3}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-3">
+                    <Button size="sm" onClick={handleSaveLead} disabled={leadSaving} className="h-8 text-xs">
+                      {leadSaving ? <><Icon name="Loader2" size={13} className="animate-spin mr-1" />Сохранение...</> : <><Icon name="Save" size={13} className="mr-1" />Сохранить</>}
+                    </Button>
                   </div>
                 </div>
-                {detail.notes && (
-                  <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-1">Примечание</div>
-                    <div className="bg-muted/50 rounded p-3 text-sm leading-relaxed whitespace-pre-line">{detail.notes}</div>
-                  </div>
-                )}
 
-                {/* Выбор результата звонка в модалке */}
+                {/* Статус звонка */}
                 <div>
-                  <div className="text-xs font-medium text-muted-foreground mb-2">Отметить результат звонка</div>
+                  <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Icon name="Phone" size={13} /> Результат звонка
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
                     {CALL_RESULTS.map((r) => (
                       <button
@@ -945,8 +1011,7 @@ export default function Leads() {
                 {/* История звонков */}
                 <div>
                   <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
-                    <Icon name="History" size={13} />
-                    История звонков
+                    <Icon name="History" size={13} /> История звонков
                   </div>
                   {callLogLoading ? (
                     <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
@@ -955,7 +1020,7 @@ export default function Leads() {
                   ) : callLog.length === 0 ? (
                     <div className="text-xs text-muted-foreground italic">Звонков ещё не было</div>
                   ) : (
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                       {callLog.map((entry) => {
                         const cr = CALL_RESULTS.find((r) => r.value === entry.result);
                         return (
@@ -982,6 +1047,7 @@ export default function Leads() {
                   )}
                 </div>
 
+                {/* Действия */}
                 <div className="flex justify-between items-center pt-2 border-t border-border gap-2">
                   <Button
                     onClick={() => handleConvert(detail.id)}
