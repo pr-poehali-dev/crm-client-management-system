@@ -834,10 +834,9 @@ export default function Leads() {
                     <div className="text-xs text-muted-foreground font-medium mb-0.5">Телефон</div>
                     {(user?.mangoVerified || user?.role === "admin") ? (
                       detail.phone ? (
-                        <a href={`tel:${detail.phone}`} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-                          <Icon name="Phone" size={13} />
+                        <div className="text-sm font-medium flex items-center gap-1 select-all">
                           {detail.phone}
-                        </a>
+                        </div>
                       ) : <div className="text-sm">—</div>
                     ) : (
                       <div className="text-sm text-muted-foreground flex items-center gap-1">
