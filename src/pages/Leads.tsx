@@ -10,6 +10,8 @@ import func2url from "../../backend/func2url.json";
 import * as XLSX from "xlsx";
 import { useBadge } from "@/hooks/useBadge";
 
+const AUTH_URL = (func2url as Record<string, string>)["auth"];
+
 const WA_SVG = <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.849L0 24l6.335-1.502A11.933 11.933 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.807 9.807 0 01-5.032-1.388l-.361-.214-3.741.887.936-3.634-.235-.374A9.786 9.786 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>;
 const TG_SVG = <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.16 13.28l-2.963-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.991.279z"/></svg>;
 
@@ -149,6 +151,8 @@ export default function Leads() {
   const [bulkAssignPopup, setBulkAssignPopup] = useState(false);
   const [bulkAssignName, setBulkAssignName] = useState("");
   const [bulkAssigning, setBulkAssigning] = useState(false);
+  const [staffList, setStaffList] = useState<{ id: number; fullName: string }[]>([]);
+  const [bulkAssignUserId, setBulkAssignUserId] = useState<number | null>(null);
   const [colorPickerId, setColorPickerId] = useState<number | null>(null);
   const [colorPickerPos, setColorPickerPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [showCallResultPrompt, setShowCallResultPrompt] = useState(false);
@@ -207,6 +211,18 @@ export default function Leads() {
   }, [token]);
 
   useEffect(() => { loadLeads(); }, [loadLeads]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch(AUTH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+      body: JSON.stringify({ action: "list_users" }),
+    }).then(r => r.json()).then(data => {
+      const list = (data.users || []).filter((u: { role: string }) => u.role === "employee");
+      setStaffList(list);
+    });
+  }, [isAdmin, token]);
 
   const employees = Array.from(new Set(leads.map((l) => l.assignedTo).filter(Boolean))).sort();
 
@@ -301,19 +317,21 @@ export default function Leads() {
   };
 
   const handleBulkAssign = async () => {
-    const name = bulkAssignName.trim();
-    if (!name || selectedIds.size === 0) return;
+    if (!bulkAssignUserId || selectedIds.size === 0) return;
+    const staff = staffList.find(s => s.id === bulkAssignUserId);
+    const name = staff?.fullName || bulkAssignName.trim();
     setBulkAssigning(true);
     try {
       await fetch(API, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
-        body: JSON.stringify({ action: "assign_leads", ids: Array.from(selectedIds), assignedTo: name }),
+        body: JSON.stringify({ action: "assign_leads", ids: Array.from(selectedIds), assignedTo: name, assignedUserId: bulkAssignUserId }),
       });
       setLeads((prev) => prev.map((l) => selectedIds.has(l.id) ? { ...l, assignedTo: name } : l));
       setSelectedIds(new Set());
       setBulkAssignPopup(false);
       setBulkAssignName("");
+      setBulkAssignUserId(null);
     } finally {
       setBulkAssigning(false);
     }
@@ -495,28 +513,36 @@ export default function Leads() {
 
       {/* Bulk assign popup */}
       {bulkAssignPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setBulkAssignPopup(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setBulkAssignPopup(false); setBulkAssignUserId(null); }}>
           <div className="bg-white border border-blue-300 rounded-xl shadow-2xl p-6 flex flex-col gap-4 w-[400px] max-w-[95vw]" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <div className="text-sm font-bold text-foreground">Назначить лиды сотруднику</div>
-              <button onClick={() => setBulkAssignPopup(false)} className="text-muted-foreground hover:text-foreground"><Icon name="X" size={16} /></button>
+              <button onClick={() => { setBulkAssignPopup(false); setBulkAssignUserId(null); }} className="text-muted-foreground hover:text-foreground"><Icon name="X" size={16} /></button>
             </div>
             <div className="text-xs text-muted-foreground">
-              Выбрано лидов: <b>{selectedIds.size}</b>. Укажите ФИО сотрудника, которому их назначить.
+              Выбрано лидов: <b>{selectedIds.size}</b>. Выберите сотрудника:
             </div>
-            <input
-              autoFocus
-              value={bulkAssignName}
-              onChange={(e) => setBulkAssignName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleBulkAssign(); if (e.key === "Escape") setBulkAssignPopup(false); }}
-              placeholder="Иванов Иван Иванович"
-              className="border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
-            />
+            <div className="flex flex-col gap-1.5 max-h-[240px] overflow-y-auto">
+              {staffList.length === 0 && <div className="text-xs text-muted-foreground italic">Нет сотрудников</div>}
+              {staffList.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => setBulkAssignUserId(s.id)}
+                  className="text-sm px-3 py-2 rounded-lg border text-left transition-all"
+                  style={bulkAssignUserId === s.id
+                    ? { background: "#2563eb", color: "#fff", borderColor: "#2563eb" }
+                    : { background: "white", color: "#1e293b", borderColor: "#e2e8f0" }
+                  }
+                >
+                  <Icon name="User" size={13} className="inline mr-1.5" />{s.fullName}
+                </button>
+              ))}
+            </div>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setBulkAssignPopup(false)} className="text-xs px-3 py-1.5 rounded border border-border hover:bg-muted transition-colors">Отмена</button>
+              <button onClick={() => { setBulkAssignPopup(false); setBulkAssignUserId(null); }} className="text-xs px-3 py-1.5 rounded border border-border hover:bg-muted transition-colors">Отмена</button>
               <button
                 onClick={handleBulkAssign}
-                disabled={!bulkAssignName.trim() || bulkAssigning}
+                disabled={!bulkAssignUserId || bulkAssigning}
                 className="text-xs px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white transition-colors flex items-center gap-1.5"
               >
                 {bulkAssigning && <Icon name="Loader2" size={12} className="animate-spin" />}
