@@ -903,32 +903,50 @@ export default function Leads() {
               </DialogHeader>
               <div className="space-y-5 pt-2">
 
-                {/* Мессенджеры — вверху, если есть телефон */}
+                {/* Связь — вверху, если есть телефон */}
                 {(user?.mangoVerified || user?.role === "admin") && detail.phone && (() => {
                   const rawPhone = detail.phone.replace(/\D/g, "");
                   const greeting = encodeURIComponent("Здравствуйте! Вам пишут по поводу трудоустройства.");
                   return (
-                    <div className="bg-muted/40 rounded-lg p-3">
-                      <div className="text-xs text-muted-foreground font-medium mb-2 flex items-center gap-1.5">
-                        <Icon name="MessageCircle" size={13} />
-                        Написать в мессенджер
+                    <div className="bg-muted/40 rounded-lg p-3 space-y-3">
+                      {/* Звонок */}
+                      <div>
+                        <div className="text-xs text-muted-foreground font-medium mb-2 flex items-center gap-1.5">
+                          <Icon name="Phone" size={13} />
+                          Позвонить
+                        </div>
+                        <a href={`tel:${detail.phone}`}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                          style={{ background: "hsl(220,80%,45%)" }}
+                        >
+                          <Icon name="Phone" size={15} />
+                          {detail.phone}
+                        </a>
+                        <div className="text-[10px] text-muted-foreground mt-1">Звонок через Mango Office</div>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <a href={`https://wa.me/${rawPhone}`} target="_blank" rel="noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
-                          style={{ background: "#25D366" }}>{WA_SVG} WhatsApp</a>
-                        <a href={`https://wa.me/${rawPhone}?text=${greeting}`} target="_blank" rel="noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-opacity hover:opacity-90"
-                          style={{ color: "#25D366", borderColor: "#25D366" }}>{WA_SVG} + текст</a>
-                        <a href={`https://t.me/+${rawPhone}`} target="_blank" rel="noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
-                          style={{ background: "#2AABEE" }}>{TG_SVG} Telegram</a>
-                        <a href={`https://t.me/+${rawPhone}?text=${greeting}`} target="_blank" rel="noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-opacity hover:opacity-90"
-                          style={{ color: "#2AABEE", borderColor: "#2AABEE" }}>{TG_SVG} + текст</a>
-                        <a href={`https://max.ru/call/${rawPhone}`} target="_blank" rel="noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
-                          style={{ background: "#005FF9" }}><Icon name="MessageCircle" size={13} /> MAX</a>
+                      {/* Мессенджеры */}
+                      <div>
+                        <div className="text-xs text-muted-foreground font-medium mb-2 flex items-center gap-1.5">
+                          <Icon name="MessageCircle" size={13} />
+                          Написать в мессенджер
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <a href={`https://wa.me/${rawPhone}`} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
+                            style={{ background: "#25D366" }}>{WA_SVG} WhatsApp</a>
+                          <a href={`https://wa.me/${rawPhone}?text=${greeting}`} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-opacity hover:opacity-90"
+                            style={{ color: "#25D366", borderColor: "#25D366" }}>{WA_SVG} + текст</a>
+                          <a href={`https://t.me/+${rawPhone}`} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
+                            style={{ background: "#2AABEE" }}>{TG_SVG} Telegram</a>
+                          <a href={`https://t.me/+${rawPhone}?text=${greeting}`} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-opacity hover:opacity-90"
+                            style={{ color: "#2AABEE", borderColor: "#2AABEE" }}>{TG_SVG} + текст</a>
+                          <a href={`https://max.ru/call/${rawPhone}`} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
+                            style={{ background: "#005FF9" }}><Icon name="MessageCircle" size={13} /> MAX</a>
+                        </div>
                       </div>
                     </div>
                   );
