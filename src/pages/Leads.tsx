@@ -846,6 +846,68 @@ export default function Leads() {
                       </div>
                     )}
                   </div>
+                  {/* Мессенджеры */}
+                  {(user?.mangoVerified || user?.role === "admin") && detail.phone && (() => {
+                    const rawPhone = detail.phone.replace(/\D/g, "");
+                    const greeting = encodeURIComponent(`Здравствуйте! Вам пишут по поводу трудоустройства.`);
+                    return (
+                      <div className="col-span-2">
+                        <div className="text-xs text-muted-foreground font-medium mb-1.5">Написать в мессенджер</div>
+                        <div className="flex flex-wrap gap-2">
+                          {/* WhatsApp — просто чат */}
+                          <a
+                            href={`https://wa.me/${rawPhone}`}
+                            target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
+                            style={{ background: "#25D366" }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.849L0 24l6.335-1.502A11.933 11.933 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.807 9.807 0 01-5.032-1.388l-.361-.214-3.741.887.936-3.634-.235-.374A9.786 9.786 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
+                            WhatsApp
+                          </a>
+                          {/* WhatsApp с текстом */}
+                          <a
+                            href={`https://wa.me/${rawPhone}?text=${greeting}`}
+                            target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-90 border"
+                            style={{ color: "#25D366", borderColor: "#25D366" }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.849L0 24l6.335-1.502A11.933 11.933 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.807 9.807 0 01-5.032-1.388l-.361-.214-3.741.887.936-3.634-.235-.374A9.786 9.786 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
+                            + текст
+                          </a>
+                          {/* Telegram — просто чат */}
+                          <a
+                            href={`https://t.me/+${rawPhone}`}
+                            target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
+                            style={{ background: "#2AABEE" }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.16 13.28l-2.963-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.991.279z"/></svg>
+                            Telegram
+                          </a>
+                          {/* Telegram с текстом */}
+                          <a
+                            href={`https://t.me/+${rawPhone}?text=${greeting}`}
+                            target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-90 border"
+                            style={{ color: "#2AABEE", borderColor: "#2AABEE" }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.16 13.28l-2.963-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.991.279z"/></svg>
+                            + текст
+                          </a>
+                          {/* MAX */}
+                          <a
+                            href={`https://max.ru/call/${rawPhone}`}
+                            target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
+                            style={{ background: "#005FF9" }}
+                          >
+                            <Icon name="MessageCircle" size={14} />
+                            MAX
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <InfoRow label="Город" value={detail.city} />
                   <InfoRow label="Гражданство" value={detail.citizenship} />
                   <InfoRow label="Дата заявки" value={detail.createdAt ? new Date(detail.createdAt).toLocaleDateString("ru-RU") : ""} />
