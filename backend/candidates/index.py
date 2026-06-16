@@ -940,7 +940,12 @@ def handler(event: dict, context) -> dict:
             session_user = get_session_user(conn, session_id)
             cur = conn.cursor()
             if mode == "leads":
-                cur.execute(f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = true ORDER BY created_at DESC, id DESC")
+                if session_user and session_user["role"] != "admin":
+                    cur.execute(
+                        f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = true AND assigned_user_id = {int(session_user['id'])} ORDER BY created_at DESC, id DESC"
+                    )
+                else:
+                    cur.execute(f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = true ORDER BY created_at DESC, id DESC")
             elif session_user and session_user["role"] == "employee":
                 cur.execute(
                     f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = false AND employee_name = {q(session_user['fullName'])} ORDER BY created_at DESC, id DESC"
