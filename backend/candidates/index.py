@@ -724,12 +724,19 @@ def action_push_vapid_key():
 
 
 def action_help_get(conn):
-    """Получить разделы инструкции."""
+    """Получить разделы инструкции вместе с цветовой легендой."""
     cur = conn.cursor()
-    cur.execute(f"SELECT id, sort_order, icon, title, items FROM {SCHEMA}.help_sections ORDER BY sort_order ASC")
+    cur.execute(f"SELECT id, sort_order, icon, title, items, section_type FROM {SCHEMA}.help_sections ORDER BY sort_order ASC")
     rows = cur.fetchall()
+    result = []
+    for r in rows:
+        section = {"id": r[0], "sortOrder": r[1], "icon": r[2], "title": r[3], "items": r[4] if isinstance(r[4], list) else json.loads(r[4] or "[]"), "sectionType": r[5] or "list", "colorLegend": []}
+        if section["sectionType"] == "colors":
+            cur.execute(f"SELECT id, sort_order, color, label, description FROM {SCHEMA}.help_color_legend WHERE section_id={r[0]} ORDER BY sort_order ASC")
+            legend_rows = cur.fetchall()
+            section["colorLegend"] = [{"id": lr[0], "sortOrder": lr[1], "color": lr[2], "label": lr[3], "description": lr[4]} for lr in legend_rows]
+        result.append(section)
     cur.close()
-    result = [{"id": r[0], "sortOrder": r[1], "icon": r[2], "title": r[3], "items": r[4] if isinstance(r[4], list) else json.loads(r[4])} for r in rows]
     return {"statusCode": 200, "headers": CORS, "body": json.dumps(result, ensure_ascii=False)}
 
 
@@ -762,16 +769,44 @@ def action_help_add_section(body, headers, conn):
         return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
     title = body.get("title", "Новый раздел")
     icon = body.get("icon", "Info")
+    section_type = body.get("sectionType", "list")
     cur = conn.cursor()
     cur.execute(f"SELECT COALESCE(MAX(sort_order),0)+1 FROM {SCHEMA}.help_sections")
     next_order = cur.fetchone()[0]
     cur.execute(
-        f"INSERT INTO {SCHEMA}.help_sections (sort_order, icon, title, items) VALUES ({next_order},{q(icon)},{q(title)},'[]') RETURNING id, sort_order, icon, title, items"
+        f"INSERT INTO {SCHEMA}.help_sections (sort_order, icon, title, items, section_type) VALUES ({next_order},{q(icon)},{q(title)},'[]',{q(section_type)}) RETURNING id, sort_order, icon, title, items, section_type"
     )
     row = cur.fetchone()
     conn.commit()
     cur.close()
-    return {"statusCode": 201, "headers": CORS, "body": json.dumps({"id": row[0], "sortOrder": row[1], "icon": row[2], "title": row[3], "items": []}, ensure_ascii=False)}
+    return {"statusCode": 201, "headers": CORS, "body": json.dumps({"id": row[0], "sortOrder": row[1], "icon": row[2], "title": row[3], "items": [], "sectionType": row[5] or "list", "colorLegend": []}, ensure_ascii=False)}
+
+
+def action_help_save_legend(body, headers, conn):
+    """Сохранить цветовую легенду раздела. Только для администраторов."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
+    section_id = int(body.get("sectionId", 0))
+    entries = body.get("entries", [])
+    cur = conn.cursor()
+    # Обновляем или вставляем каждую запись
+    for i, entry in enumerate(entries):
+        entry_id = entry.get("id")
+        color = entry.get("color", "#3b82f6")
+        label = entry.get("label", "")
+        description = entry.get("description", "")
+        if entry_id:
+            cur.execute(
+                f"UPDATE {SCHEMA}.help_color_legend SET color={q(color)}, label={q(label)}, description={q(description)}, sort_order={i+1} WHERE id={int(entry_id)} AND section_id={section_id}"
+            )
+        else:
+            cur.execute(
+                f"INSERT INTO {SCHEMA}.help_color_legend (section_id, sort_order, color, label, description) VALUES ({section_id},{i+1},{q(color)},{q(label)},{q(description)}) RETURNING id"
+            )
+    conn.commit()
+    cur.close()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
 
 
 def action_help_delete_section(body, headers, conn):
@@ -782,6 +817,19 @@ def action_help_delete_section(body, headers, conn):
     section_id = int(body.get("id", 0))
     cur = conn.cursor()
     cur.execute(f"DELETE FROM {SCHEMA}.help_sections WHERE id={section_id}")
+    conn.commit()
+    cur.close()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
+
+
+def action_help_delete_legend_entry(body, headers, conn):
+    """Удалить строку цветовой легенды. Только для администраторов."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
+    entry_id = int(body.get("id", 0))
+    cur = conn.cursor()
+    cur.execute(f"UPDATE {SCHEMA}.help_color_legend SET label='', description='', color='#cccccc' WHERE id={entry_id}")
     conn.commit()
     cur.close()
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
@@ -965,6 +1013,10 @@ def handler(event: dict, context) -> dict:
                 return action_help_add_section(body, headers, conn)
             if action == "help_delete_section":
                 return action_help_delete_section(body, headers, conn)
+            if action == "help_save_legend":
+                return action_help_save_legend(body, headers, conn)
+            if action == "help_delete_legend_entry":
+                return action_help_delete_legend_entry(body, headers, conn)
             return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": f"Unknown action: {action}"})}
         finally:
             cur.close()
