@@ -797,7 +797,7 @@ export default function Leads() {
                               <Icon name="Palette" size={13} />
                             </button>
                             {colorPickerId === l.id && (
-                              <div className="absolute right-0 top-7 z-50 bg-white border border-border rounded-lg shadow-xl p-2 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              <div className="absolute right-full top-0 mr-1 z-50 bg-white border border-border rounded-lg shadow-xl p-2 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
                                 <div className="text-[10px] text-muted-foreground mb-1 font-medium px-1">Цвет строки</div>
                                 <div className="flex gap-1.5 flex-wrap w-[136px]">
                                   {["#ef4444","#f97316","#eab308","#22c55e","#3b82f6","#8b5cf6","#ec4899","#14b8a6"].map((c) => (
