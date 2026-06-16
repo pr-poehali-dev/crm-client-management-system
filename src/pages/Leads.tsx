@@ -796,15 +796,13 @@ export default function Leads() {
                   <td className="px-3 py-2 whitespace-nowrap">
                     {(user?.mangoVerified || user?.role === "admin") ? (
                       l.phone ? (
-                        <a
-                          href={`tel:${l.phone}`}
+                        <button
                           className="font-mono text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-                          title="Позвонить"
-                          onClick={(e) => e.stopPropagation()}
+                          title="Открыть карточку"
+                          onClick={(e) => { e.stopPropagation(); setDetailId(l.id); loadCallLog(l.id); }}
                         >
-                          <Icon name="Phone" size={11} />
                           {l.phone}
-                        </a>
+                        </button>
                       ) : <span className="text-muted-foreground">—</span>
                     ) : (
                       <span className="text-muted-foreground flex items-center gap-1">
