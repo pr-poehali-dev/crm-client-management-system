@@ -57,6 +57,16 @@ export default function MyLeads() {
   const [leadSaving, setLeadSaving] = useState(false);
   const [converting, setConverting] = useState(false);
 
+  const handleSetCallResult = async (id: string, result: string) => {
+    setLeads((prev) => prev.map((l) => l.id === id ? { ...l, callResult: result, called: result !== "" } : l));
+    setSelectedLead((prev) => prev ? { ...prev, callResult: result } : null);
+    await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+      body: JSON.stringify({ action: "set_call_result", id, result, comment: "" }),
+    });
+  };
+
   const handleConvert = async (id: string) => {
     setConverting(true);
     try {
@@ -337,6 +347,28 @@ export default function MyLeads() {
                       <Button size="sm" onClick={handleSaveLead} disabled={leadSaving} className="h-8 text-xs">
                         {leadSaving ? <><Icon name="Loader2" size={13} className="animate-spin mr-1" />Сохранение...</> : <><Icon name="Save" size={13} className="mr-1" />Сохранить</>}
                       </Button>
+                    </div>
+                  </div>
+
+                  {/* Результат звонка */}
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                      <Icon name="Phone" size={13} /> Результат звонка
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CALL_RESULTS.map((r) => (
+                        <button
+                          key={r.value}
+                          onClick={() => handleSetCallResult(selectedLead.id, r.value)}
+                          className="text-[11px] font-medium px-2 py-1 rounded border transition-all"
+                          style={selectedLead.callResult === r.value
+                            ? { ...r.color, outline: "2px solid " + r.color.borderColor, outlineOffset: "1px" }
+                            : { color: "#888", borderColor: "#e2e8f0", background: "white" }
+                          }
+                        >
+                          {r.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
