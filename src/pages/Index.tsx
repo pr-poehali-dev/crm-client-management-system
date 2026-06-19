@@ -194,26 +194,34 @@ function FilesUploadCell({ files, onAdd, label }: {
   label: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files || []);
     if (!picked.length) return;
     if (inputRef.current) inputRef.current.value = "";
-    setUploading(true);
     setUploadError(null);
+    setProgress({ done: 0, total: picked.length });
+    const results: FileItem[] = [];
     try {
-      const uploaded = await Promise.all(picked.map(uploadFileToS3));
-      onAdd([...files, ...uploaded]);
+      for (const file of picked) {
+        const item = await uploadFileToS3(file);
+        results.push(item);
+        setProgress(p => p ? { done: p.done + 1, total: p.total } : null);
+      }
+      onAdd([...files, ...results]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setUploadError(msg);
       console.error("Upload failed", err);
     } finally {
-      setUploading(false);
+      setProgress(null);
     }
   };
+
+  const uploading = progress !== null;
+  const pct = progress ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
     <div className="space-y-2">
@@ -229,9 +237,17 @@ function FilesUploadCell({ files, onAdd, label }: {
       <button type="button" onClick={() => !uploading && inputRef.current?.click()}
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors border border-dashed border-border rounded px-2 py-1 hover:border-primary disabled:opacity-50">
         {uploading
-          ? <><Icon name="Loader2" size={12} className="animate-spin" /> Загрузка...</>
+          ? <><Icon name="Loader2" size={12} className="animate-spin" /> Загрузка {progress!.done + 1} из {progress!.total}...</>
           : <><Icon name="Plus" size={12} />{label}</>}
       </button>
+      {uploading && (
+        <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+          <div
+            className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+            style={{ width: `${progress!.done === 0 ? 10 : pct}%` }}
+          />
+        </div>
+      )}
       <input ref={inputRef} type="file" multiple accept="image/*,.pdf" className="hidden" onChange={handleFiles} />
       {uploadError && (
         <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 break-all">
