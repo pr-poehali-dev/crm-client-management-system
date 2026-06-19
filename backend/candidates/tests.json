@@ -55,6 +55,15 @@
       "expectedStatus": 400
     },
     {
+      "name": "POST presign_upload — возвращает uploadUrl и cdnUrl",
+      "method": "POST",
+      "path": "/",
+      "body": { "action": "presign_upload", "name": "photo.jpg", "type": "image/jpeg" },
+      "expectedStatus": 200,
+      "expectedBody": { "uploadUrl": "string", "cdnUrl": "string" },
+      "bodyMatcher": "partial"
+    },
+    {
       "name": "Webhook — принимает лид без секрета",
       "method": "POST",
       "path": "/",

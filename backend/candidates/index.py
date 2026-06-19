@@ -113,6 +113,31 @@ def action_upload(body):
     }
 
 
+def action_presign_upload(body):
+    """Генерирует presigned URL для прямой загрузки файла в S3 с фронтенда."""
+    original_name = body.get("name", "file")
+    content_type = body.get("type", "application/octet-stream")
+
+    ext = mimetypes.guess_extension(content_type) or os.path.splitext(original_name)[1] or ".bin"
+    ext = ext.lstrip(".")
+    ext = {"jpeg": "jpg", "jpe": "jpg"}.get(ext, ext)
+
+    key = f"crm-files/{uuid.uuid4().hex}.{ext}"
+    s3 = get_s3()
+    presigned_url = s3.generate_presigned_url(
+        "put_object",
+        Params={"Bucket": "files", "Key": key, "ContentType": content_type},
+        ExpiresIn=300,
+    )
+
+    cdn_url = f"{get_cdn_base()}/{key}"
+    return {
+        "statusCode": 200,
+        "headers": CORS,
+        "body": json.dumps({"uploadUrl": presigned_url, "cdnUrl": cdn_url, "name": original_name, "type": content_type}),
+    }
+
+
 def send_telegram(text: str):
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
@@ -971,6 +996,9 @@ def handler(event: dict, context) -> dict:
 
         if action == "upload":
             return action_upload(body)
+
+        if action == "presign_upload":
+            return action_presign_upload(body)
 
         if action in ("announcements_post", "announcements_delete", "push_subscribe"):
             conn2 = get_conn()

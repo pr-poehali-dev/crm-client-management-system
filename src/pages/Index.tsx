@@ -143,29 +143,20 @@ const EMPTY: Omit<Candidate, "id" | "createdAt"> = {
 };
 
 async function uploadFileToS3(file: File): Promise<FileItem> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const base64 = (reader.result as string).split(",")[1];
-        const res = await fetch(UPLOAD_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "upload", data: base64, name: file.name, type: file.type }),
-        });
-        const data = await res.text();
-        // Разворачиваем двойную сериализацию если есть
-        let parsed = JSON.parse(data);
-        if (typeof parsed === "string") parsed = JSON.parse(parsed);
-        if (!parsed.url) throw new Error("No URL in response: " + data);
-        resolve({ url: parsed.url, name: file.name, type: file.type });
-      } catch (e) {
-        reject(e);
-      }
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+  const res = await fetch(UPLOAD_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "presign_upload", name: file.name, type: file.type }),
   });
+  let data = await res.json();
+  if (typeof data === "string") data = JSON.parse(data);
+  if (!data.uploadUrl) throw new Error("No uploadUrl in response: " + JSON.stringify(data));
+  await fetch(data.uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+  return { url: data.cdnUrl, name: file.name, type: file.type };
 }
 
 function FilesUploadCell({ files, onAdd, label }: {
