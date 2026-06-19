@@ -55,6 +55,22 @@ export default function MyLeads() {
   const [selectedLead, setSelectedLead] = useState<MyLead | null>(null);
   const [leadForm, setLeadForm] = useState(EMPTY_FORM);
   const [leadSaving, setLeadSaving] = useState(false);
+  const [converting, setConverting] = useState(false);
+
+  const handleConvert = async (id: string) => {
+    setConverting(true);
+    try {
+      await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+        body: JSON.stringify({ action: "convert_lead", id }),
+      });
+      setLeads((prev) => prev.filter((l) => l.id !== id));
+      setSelectedLead(null);
+    } finally {
+      setConverting(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedLead) {
@@ -322,6 +338,20 @@ export default function MyLeads() {
                         {leadSaving ? <><Icon name="Loader2" size={13} className="animate-spin mr-1" />Сохранение...</> : <><Icon name="Save" size={13} className="mr-1" />Сохранить</>}
                       </Button>
                     </div>
+                  </div>
+
+                  {/* Перевести в кандидаты */}
+                  <div className="flex pt-2 border-t border-border">
+                    <Button
+                      onClick={() => handleConvert(selectedLead.id)}
+                      disabled={converting}
+                      className="h-8 text-sm text-white flex-1"
+                      style={{ background: "hsl(142,60%,35%)" }}
+                    >
+                      {converting
+                        ? <><Icon name="Loader2" size={13} className="animate-spin mr-1" /> Перевод...</>
+                        : <><Icon name="UserCheck" size={13} className="mr-1" /> Перевести в кандидаты</>}
+                    </Button>
                   </div>
                 </div>
               </>
