@@ -2,6 +2,7 @@ import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import { useAuth } from "@/contexts/AuthContext";
 import func2url from "../../backend/func2url.json";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const API = (func2url as Record<string, string>)["candidates"];
 
@@ -44,6 +45,7 @@ export default function MyLeads() {
   const [leads, setLeads] = useState<MyLead[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedLead, setSelectedLead] = useState<MyLead | null>(null);
 
   const handleLoad = async (name: string) => {
     const trimmed = name.trim();
@@ -112,17 +114,17 @@ export default function MyLeads() {
             ) : (
               <div className="flex flex-col gap-2">
                 {leads.map((lead) => (
-                  <div key={lead.id} className="bg-white rounded-xl border border-border p-4 flex flex-col gap-2 shadow-sm hover:shadow-md transition-shadow">
+                  <div key={lead.id} onClick={() => setSelectedLead(lead)} className="bg-white rounded-xl border border-border p-4 flex flex-col gap-2 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex flex-col gap-0.5">
                         <div className="font-semibold text-sm text-foreground">{lead.fullName || "Без имени"}</div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           {lead.phone && (
                             (user?.mangoVerified || user?.role === "admin") ? (
-                              <a href={`tel:${lead.phone}`} className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                              <span className="flex items-center gap-1 text-blue-600">
                                 <Icon name="Phone" size={11} />
                                 {lead.phone}
-                              </a>
+                              </span>
                             ) : (
                               <span className="flex items-center gap-1">
                                 <Icon name="Lock" size={11} />
@@ -166,6 +168,70 @@ export default function MyLeads() {
           </div>
         )}
       </div>
+
+      {/* Карточка лида */}
+      <Dialog open={!!selectedLead} onOpenChange={() => setSelectedLead(null)}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          {selectedLead && (() => {
+            const rawPhone = selectedLead.phone?.replace(/\D/g, "");
+            const greeting = encodeURIComponent("Здравствуйте! Вам пишут по поводу трудоустройства.");
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-base font-semibold flex items-center gap-2">
+                    <Icon name="UserCircle" size={16} />
+                    {selectedLead.fullName || "Лид без имени"}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-1">
+                  {(user?.mangoVerified || user?.role === "admin") && selectedLead.phone && (
+                    <div className="bg-muted/40 rounded-lg p-3 space-y-3">
+                      <div>
+                        <div className="text-xs text-muted-foreground font-medium mb-2 flex items-center gap-1.5">
+                          <Icon name="Phone" size={13} /> Позвонить
+                        </div>
+                        <a href={`tel:${selectedLead.phone}`}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                          style={{ background: "hsl(220,80%,45%)" }}>
+                          <Icon name="Phone" size={15} />
+                          {selectedLead.phone}
+                        </a>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground font-medium mb-2 flex items-center gap-1.5">
+                          <Icon name="MessageCircle" size={13} /> Написать в мессенджер
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <a href={`https://wa.me/${rawPhone}`} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+                            style={{ background: "#25D366" }}>WhatsApp</a>
+                          <a href={`https://wa.me/${rawPhone}?text=${greeting}`} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border"
+                            style={{ color: "#25D366", borderColor: "#25D366" }}>WA + текст</a>
+                          <a href={`https://t.me/+${rawPhone}`} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+                            style={{ background: "#2AABEE" }}>Telegram</a>
+                          <a href={`https://max.ru/call/${rawPhone}`} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+                            style={{ background: "#005FF9" }}>MAX</a>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="space-y-2 text-sm">
+                    {selectedLead.city && <div className="flex gap-2"><span className="text-muted-foreground text-xs w-24 shrink-0">Город</span><span className="text-xs">{selectedLead.city}</span></div>}
+                    {selectedLead.citizenship && <div className="flex gap-2"><span className="text-muted-foreground text-xs w-24 shrink-0">Гражданство</span><span className="text-xs">{selectedLead.citizenship}</span></div>}
+                    {selectedLead.callResult && <div className="flex gap-2 items-center"><span className="text-muted-foreground text-xs w-24 shrink-0">Результат</span><CallResultBadge result={selectedLead.callResult} /></div>}
+                    {selectedLead.callComment && <div className="flex gap-2"><span className="text-muted-foreground text-xs w-24 shrink-0">Комментарий</span><span className="text-xs">{selectedLead.callComment}</span></div>}
+                    {selectedLead.notes && <div className="flex gap-2"><span className="text-muted-foreground text-xs w-24 shrink-0">Заметки</span><span className="text-xs">{selectedLead.notes}</span></div>}
+                    {selectedLead.createdAt && <div className="flex gap-2"><span className="text-muted-foreground text-xs w-24 shrink-0">Дата</span><span className="text-xs">{new Date(selectedLead.createdAt).toLocaleDateString("ru-RU")}</span></div>}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
