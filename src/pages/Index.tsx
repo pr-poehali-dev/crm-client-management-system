@@ -142,21 +142,50 @@ const EMPTY: Omit<Candidate, "id" | "createdAt"> = {
   tickets: [], contractPhotos: [], employeeName: "", company: "",
 };
 
+async function compressImage(file: File, maxPx = 1600, quality = 0.8): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const isImage = file.type.startsWith("image/");
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      if (!isImage) { resolve(dataUrl.split(",")[1]); return; }
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxPx || height > maxPx) {
+          if (width > height) { height = Math.round(height * maxPx / width); width = maxPx; }
+          else { width = Math.round(width * maxPx / height); height = maxPx; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL("image/jpeg", quality);
+        resolve(compressed.split(",")[1]);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 async function uploadFileToS3(file: File): Promise<FileItem> {
+  const base64 = await compressImage(file);
+  const uploadType = file.type.startsWith("image/") ? "image/jpeg" : file.type;
+  const uploadName = file.type.startsWith("image/")
+    ? file.name.replace(/\.[^.]+$/, ".jpg")
+    : file.name;
   const res = await fetch(UPLOAD_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "presign_upload", name: file.name, type: file.type }),
+    body: JSON.stringify({ action: "upload", data: base64, name: uploadName, type: uploadType }),
   });
-  let data = await res.json();
-  if (typeof data === "string") data = JSON.parse(data);
-  if (!data.uploadUrl) throw new Error("No uploadUrl in response: " + JSON.stringify(data));
-  await fetch(data.uploadUrl, {
-    method: "PUT",
-    headers: { "Content-Type": file.type },
-    body: file,
-  });
-  return { url: data.cdnUrl, name: file.name, type: file.type };
+  const text = await res.text();
+  let parsed = JSON.parse(text);
+  if (typeof parsed === "string") parsed = JSON.parse(parsed);
+  if (!parsed.url) throw new Error("No URL in response: " + text);
+  return { url: parsed.url, name: uploadName, type: uploadType };
 }
 
 function FilesUploadCell({ files, onAdd, label }: {
