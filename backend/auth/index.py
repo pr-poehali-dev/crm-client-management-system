@@ -62,7 +62,7 @@ def action_login(body, conn):
     pw_hash = md5(password)
     cur = conn.cursor()
     cur.execute(
-        f"SELECT id, full_name, role, is_active FROM {SCHEMA}.users "
+        f"SELECT id, full_name, role, is_active, mango_verified FROM {SCHEMA}.users "
         f"WHERE login = '{esc(login)}' AND password_hash = '{esc(pw_hash)}'"
     )
     row = cur.fetchone()
@@ -72,12 +72,11 @@ def action_login(body, conn):
     if not row[3]:
         return err("Аккаунт заблокирован. Обратитесь к администратору.", 403)
 
-    user_id, full_name, role, _ = row
+    user_id, full_name, role, _, mango_verified = row
     token = secrets.token_hex(32)
     expires = int(time.time()) + SESSION_TTL
 
     cur = conn.cursor()
-    # Удаляем старые сессии этого пользователя + все истёкшие сессии системы
     cur.execute(f"DELETE FROM {SCHEMA}.sessions WHERE user_id = {user_id} OR expires_at <= NOW()")
     cur.execute(
         f"INSERT INTO {SCHEMA}.sessions (user_id, token, expires_at) "
@@ -85,12 +84,6 @@ def action_login(body, conn):
     )
     conn.commit()
     cur.close()
-
-    cur2 = conn.cursor()
-    cur2.execute(f"SELECT mango_verified FROM {SCHEMA}.users WHERE id = {user_id}")
-    mango_row = cur2.fetchone()
-    cur2.close()
-    mango_verified = mango_row[0] if mango_row else False
 
     return ok({"token": token, "user": {"id": user_id, "login": login, "fullName": full_name, "role": role, "mangoVerified": mango_verified}})
 

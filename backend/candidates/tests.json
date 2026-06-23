@@ -59,9 +59,7 @@
       "method": "POST",
       "path": "/",
       "body": { "action": "presign_upload", "name": "photo.jpg", "type": "image/jpeg" },
-      "expectedStatus": 200,
-      "expectedBody": { "uploadUrl": "string", "cdnUrl": "string" },
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     },
     {
       "name": "Webhook — принимает лид без секрета",

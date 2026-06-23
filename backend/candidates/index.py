@@ -902,68 +902,56 @@ def handler(event: dict, context) -> dict:
     if method == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
-    # Публичные webhook-эндпоинты через query-параметр ?action=
-    query = event.get("queryStringParameters") or {}
-    if query.get("action") == "webhook":
-        return action_webhook(event)
-    if query.get("action") == "dmp":
-        return action_dmp(event)
-    if query.get("action") == "mango":
-        return action_mango(event)
-
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
     session_id = headers.get("x-session-id", "")
-
-    # GET — VAPID public key
     query_params = event.get("queryStringParameters") or {}
+
+    # Без БД: VAPID key
     if query_params.get("mode") == "vapid_key":
         return action_push_vapid_key()
 
-    # GET — лиды конкретного сотрудника (без авторизации, по имени)
-    if query_params.get("mode") == "my_leads":
-        conn = get_conn()
-        try:
-            cur = conn.cursor()
-            return action_get_my_leads(query_params, cur)
-        finally:
-            conn.close()
+    # Публичные webhook через query-параметр ?action=
+    if query_params.get("action") == "webhook":
+        return action_webhook(event)
+    if query_params.get("action") == "dmp":
+        return action_dmp(event)
+    if query_params.get("action") == "mango":
+        return action_mango(event)
 
-    # GET — история звонков по лиду
-    if query_params.get("mode") == "call_log":
-        conn = get_conn()
-        try:
-            cur = conn.cursor()
-            return action_get_call_log(query_params, cur)
-        finally:
-            conn.close()
+    # Парсим body один раз для POST
+    post_body = {}
+    if method == "POST":
+        post_body = json.loads(event.get("body") or "{}")
+        post_action = post_body.get("action", "")
+        if post_action == "upload":
+            return action_upload(post_body)
+        if post_action == "presign_upload":
+            return action_presign_upload(post_body)
+        if post_action == "webhook":
+            return action_webhook(event)
+        if post_action == "dmp":
+            return action_dmp(event, post_body)
+        if post_action == "mango":
+            return action_mango(event)
 
-    # GET — инструкция
-    if query_params.get("mode") == "help":
-        conn = get_conn()
-        try:
-            return action_help_get(conn)
-        finally:
-            conn.close()
+    # Все остальные запросы — одно соединение на весь запрос
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
 
-    # GET — объявления
-    if query_params.get("mode") == "announcements":
-        conn = get_conn()
-        try:
+        if method == "GET":
+            mode = query_params.get("mode", "candidates")
+            if mode == "my_leads":
+                return action_get_my_leads(query_params, cur)
+            if mode == "call_log":
+                return action_get_call_log(query_params, cur)
+            if mode == "help":
+                return action_help_get(conn)
             session_user = get_session_user(conn, session_id)
-            if not session_user:
-                return {"statusCode": 401, "headers": CORS, "body": json.dumps({"error": "Unauthorized"})}
-            return action_announcements_get(event, conn)
-        finally:
-            conn.close()
-
-    # GET — список кандидатов или лидов
-    if method == "GET":
-        query_params = event.get("queryStringParameters") or {}
-        mode = query_params.get("mode", "candidates")
-        conn = get_conn()
-        try:
-            session_user = get_session_user(conn, session_id)
-            cur = conn.cursor()
+            if mode == "announcements":
+                if not session_user:
+                    return {"statusCode": 401, "headers": CORS, "body": json.dumps({"error": "Unauthorized"})}
+                return action_announcements_get(event, conn)
             if mode == "leads":
                 if session_user and session_user["role"] != "admin":
                     cur.execute(
@@ -979,45 +967,10 @@ def handler(event: dict, context) -> dict:
                 cur.execute(f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = false ORDER BY created_at DESC, id DESC")
             rows = [row_to_dict(r, cur) for r in cur.fetchall()]
             return {"statusCode": 200, "headers": CORS, "body": json.dumps(rows, ensure_ascii=False)}
-        finally:
-            cur.close()
-            conn.close()
 
-    # POST — все операции через action
-    if method == "POST":
-        body = json.loads(event.get("body") or "{}")
-        action = body.get("action", "")
-
-        if action == "dmp":
-            return action_dmp(event, body)
-
-        if action == "webhook":
-            return action_webhook(event)
-
-        if action == "upload":
-            return action_upload(body)
-
-        if action == "presign_upload":
-            return action_presign_upload(body)
-
-        if action in ("announcements_post", "announcements_delete", "push_subscribe"):
-            conn2 = get_conn()
-            try:
-                session_user = get_session_user(conn2, session_id)
-                if not session_user:
-                    return {"statusCode": 401, "headers": CORS, "body": json.dumps({"error": "Unauthorized"})}
-                if action == "announcements_post":
-                    return action_announcements_post(body, session_user, conn2)
-                if action == "announcements_delete":
-                    return action_announcements_delete(body, session_user, conn2)
-                if action == "push_subscribe":
-                    return action_push_subscribe(body, session_user, conn2)
-            finally:
-                conn2.close()
-
-        conn = get_conn()
-        cur = conn.cursor()
-        try:
+        if method == "POST":
+            body = post_body
+            action = post_action
             if action == "create":
                 return action_create(body, cur, conn)
             if action == "update":
@@ -1050,9 +1003,18 @@ def handler(event: dict, context) -> dict:
                 return action_help_save_legend(body, headers, conn)
             if action == "help_delete_legend_entry":
                 return action_help_delete_legend_entry(body, headers, conn)
+            session_user = get_session_user(conn, session_id)
+            if not session_user:
+                return {"statusCode": 401, "headers": CORS, "body": json.dumps({"error": "Unauthorized"})}
+            if action == "announcements_post":
+                return action_announcements_post(body, session_user, conn)
+            if action == "announcements_delete":
+                return action_announcements_delete(body, session_user, conn)
+            if action == "push_subscribe":
+                return action_push_subscribe(body, session_user, conn)
             return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": f"Unknown action: {action}"})}
-        finally:
-            cur.close()
-            conn.close()
 
-    return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Not found"})}
+        return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Not found"})}
+    finally:
+        cur.close()
+        conn.close()
