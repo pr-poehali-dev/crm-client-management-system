@@ -1,0 +1,10 @@
+{
+  "tests": [
+    {
+      "name": "GET — удаляет дубли и возвращает 200",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}

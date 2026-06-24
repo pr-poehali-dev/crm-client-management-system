@@ -1,4 +1,5 @@
 {
+  "cleanup-duplicates": "https://functions.poehali.dev/4f62b867-e7bb-4975-ac6e-e1c1f00c04ae",
   "auth": "https://functions.poehali.dev/6a48eb91-0da0-411a-91b8-3cc890a5212a",
   "candidates": "https://functions.poehali.dev/4a217c7b-f5ab-4bd1-a924-199e40b8a6e0"
 }
