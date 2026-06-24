@@ -67,10 +67,10 @@
       "path": "/",
       "body": {
         "action": "webhook",
-        "full_name": "Лидов Лид Лидович",
-        "phone": "+79001234500",
-        "city": "Москва",
-        "source": "test-site"
+        "full_name": "",
+        "phone": "",
+        "city": "",
+        "source": "autotest"
       },
       "expectedStatus": 200,
       "bodyMatcher": "partial"
@@ -81,8 +81,8 @@
       "path": "/",
       "body": {
         "action": "dmp",
-        "phone": "7(900)123-45-67",
-        "name": "Тестов Тест"
+        "phone": "",
+        "name": ""
       },
       "expectedStatus": 200,
       "bodyMatcher": "partial"

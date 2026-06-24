@@ -139,17 +139,23 @@ def action_presign_upload(body):
 
 
 def send_telegram(text: str):
+    import threading
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
     if not token or not chat_id:
         return
-    payload = json.dumps({"chat_id": chat_id, "text": text, "parse_mode": "HTML"}).encode()
-    req = urllib.request.Request(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-    )
-    urllib.request.urlopen(req, timeout=5)
+    def _send():
+        try:
+            payload = json.dumps({"chat_id": chat_id, "text": text, "parse_mode": "HTML"}).encode()
+            req = urllib.request.Request(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            urllib.request.urlopen(req, timeout=5)
+        except Exception:
+            pass
+    threading.Thread(target=_send, daemon=True).start()
 
 
 def action_create(body, cur, conn):
@@ -402,8 +408,14 @@ def action_dmp(event: dict, body: dict = None) -> dict:
     notes = f"Источник: DMP.ONE\n{comment}".strip() if comment else "Источник: DMP.ONE"
 
     conn = get_conn()
+    new_id = None
     try:
         cur = conn.cursor()
+        if phone:
+            cur.execute(f"SELECT id FROM {SCHEMA}.candidates WHERE phone = {q(phone)} LIMIT 1")
+            if cur.fetchone():
+                cur.close()
+                return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "skipped": "duplicate"})}
         cur.execute(
             f"""INSERT INTO {SCHEMA}.candidates
                 (full_name, phone, city, citizenship, notes,
@@ -558,8 +570,14 @@ def action_webhook(event: dict) -> dict:
     notes = f"Источник: {source}\n{comment}".strip() if comment else f"Источник: {source}"
 
     conn = get_conn()
+    new_id = None
     try:
         cur = conn.cursor()
+        if phone:
+            cur.execute(f"SELECT id FROM {SCHEMA}.candidates WHERE phone = {q(phone)} LIMIT 1")
+            if cur.fetchone():
+                cur.close()
+                return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "skipped": "duplicate"})}
         cur.execute(
             f"""INSERT INTO {SCHEMA}.candidates
                 (full_name, phone, city, citizenship, notes,
