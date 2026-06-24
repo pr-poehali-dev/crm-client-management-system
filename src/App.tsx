@@ -11,6 +11,7 @@ import Leads from "./pages/Leads";
 import MyLeads from "./pages/MyLeads";
 import Help from "./pages/Help";
 import Chat from "./pages/Chat";
+import Duplicates from "./pages/Duplicates";
 import NotFound from "./pages/NotFound";
 import Icon from "@/components/ui/icon";
 
@@ -40,6 +41,7 @@ function AppRoutes() {
       <Route path="/users" element={<ProtectedRoute adminOnly><Users /></ProtectedRoute>} />
       <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
       <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+      <Route path="/duplicates" element={<ProtectedRoute adminOnly><Duplicates /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

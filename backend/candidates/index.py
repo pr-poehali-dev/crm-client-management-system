@@ -669,6 +669,61 @@ def action_import_leads(body, headers, conn):
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "imported": imported, "skipped": skipped})}
 
 
+def action_get_duplicates(headers, conn):
+    """Найти дубли по номеру телефона. Только для администраторов."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
+    cur = conn.cursor()
+    cur.execute(
+        f"""SELECT phone, COUNT(*) as cnt,
+               array_agg(id ORDER BY id) as ids,
+               array_agg(full_name ORDER BY id) as names,
+               array_agg(created_at::text ORDER BY id) as dates,
+               array_agg(is_lead::text ORDER BY id) as is_leads
+            FROM {SCHEMA}.candidates
+            WHERE phone IS NOT NULL AND phone != ''
+            GROUP BY phone
+            HAVING COUNT(*) > 1
+            ORDER BY cnt DESC, phone"""
+    )
+    rows = cur.fetchall()
+    cur.close()
+    groups = []
+    for row in rows:
+        phone, cnt, ids, names, dates, is_leads = row
+        records = [{"id": ids[i], "fullName": names[i] or "", "createdAt": dates[i], "isLead": is_leads[i] == "true"} for i in range(len(ids))]
+        groups.append({"phone": phone, "count": cnt, "keepId": ids[0], "records": records})
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"groups": groups, "totalDuplicates": sum(g["count"] - 1 for g in groups)}, ensure_ascii=False)}
+
+
+def action_delete_duplicates(body, headers, conn):
+    """Удалить дубли — оставить самую раннюю запись по каждому номеру. Только для администраторов."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
+    cur = conn.cursor()
+    cur.execute(
+        f"""SELECT array_agg(id) FROM {SCHEMA}.candidates
+            WHERE phone IS NOT NULL AND phone != ''
+            AND id NOT IN (
+                SELECT MIN(id) FROM {SCHEMA}.candidates
+                WHERE phone IS NOT NULL AND phone != ''
+                GROUP BY phone
+            )"""
+    )
+    row = cur.fetchone()
+    ids_to_delete = row[0] if row and row[0] else []
+    deleted = 0
+    if ids_to_delete:
+        ids_sql = ",".join(str(i) for i in ids_to_delete)
+        cur.execute(f"DELETE FROM {SCHEMA}.candidates WHERE id IN ({ids_sql})")
+        deleted = cur.rowcount
+        conn.commit()
+    cur.close()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "deleted": deleted})}
+
+
 def action_delete_empty_leads(headers, conn):
     """Удаляет лиды без телефона и имени (мусорные записи от неудачного импорта). Только для админов."""
     user = get_session_user(conn, headers.get("x-session-id", ""))
@@ -1021,6 +1076,10 @@ def handler(event: dict, context) -> dict:
                 return action_help_save_legend(body, headers, conn)
             if action == "help_delete_legend_entry":
                 return action_help_delete_legend_entry(body, headers, conn)
+            if action == "get_duplicates":
+                return action_get_duplicates(headers, conn)
+            if action == "delete_duplicates":
+                return action_delete_duplicates(body, headers, conn)
             session_user = get_session_user(conn, session_id)
             if not session_user:
                 return {"statusCode": 401, "headers": CORS, "body": json.dumps({"error": "Unauthorized"})}

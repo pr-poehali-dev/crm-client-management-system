@@ -130,19 +130,29 @@ export default function Users() {
           <div className="w-px h-5 bg-white/20" />
           <div className="font-semibold text-sm">Пользователи системы</div>
         </div>
-        <button
-          onClick={() => navigate("/chat")}
-          className="relative flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors"
-          title="Объявления"
-        >
-          <Icon name="MessageSquare" size={14} />
-          <span className="hidden md:inline">Объявления</span>
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-4 text-center">
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
-          )}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => navigate("/duplicates")}
+            className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors"
+            title="Дубли"
+          >
+            <Icon name="Copy" size={14} />
+            <span className="hidden md:inline">Дубли</span>
+          </button>
+          <button
+            onClick={() => navigate("/chat")}
+            className="relative flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors"
+            title="Объявления"
+          >
+            <Icon name="MessageSquare" size={14} />
+            <span className="hidden md:inline">Объявления</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-4 text-center">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </button>
+        </div>
       </header>
 
       <div className="p-6 max-w-2xl mx-auto">
