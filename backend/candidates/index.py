@@ -228,9 +228,12 @@ def action_update(body, cur, conn):
     return {"statusCode": 200, "headers": CORS, "body": json.dumps(row, ensure_ascii=False)}
 
 
-def action_delete(body, cur, conn):
+def action_delete(body, cur, conn, headers=None):
     candidate_id = int(body.get("id", 0))
-    cur.execute(f"DELETE FROM {SCHEMA}.candidates WHERE id={candidate_id}")
+    source = body.get("source", "candidates")
+    cur.execute(
+        f"UPDATE {SCHEMA}.candidates SET trashed_at=NOW(), trashed_from={q(source)} WHERE id={candidate_id} AND trashed_at IS NULL"
+    )
     conn.commit()
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
 
@@ -305,7 +308,7 @@ def action_get_my_leads(params, cur):
         return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "name required"})}
     cur.execute(
         f"SELECT id, full_name, phone, city, citizenship, notes, created_at, call_result, call_comment, assigned_to "
-        f"FROM {SCHEMA}.candidates WHERE is_lead=true AND assigned_to={q(name)} ORDER BY created_at DESC"
+        f"FROM {SCHEMA}.candidates WHERE is_lead=true AND assigned_to={q(name)} AND trashed_at IS NULL ORDER BY created_at DESC"
     )
     rows = cur.fetchall()
     result = []
@@ -682,7 +685,7 @@ def action_get_duplicates(headers, conn):
                array_agg(created_at::text ORDER BY id) as dates,
                array_agg(is_lead::text ORDER BY id) as is_leads
             FROM {SCHEMA}.candidates
-            WHERE phone IS NOT NULL AND phone != ''
+            WHERE phone IS NOT NULL AND phone != '' AND trashed_at IS NULL
             GROUP BY phone
             HAVING COUNT(*) > 1
             ORDER BY cnt DESC, phone"""
@@ -717,7 +720,7 @@ def action_delete_duplicates(body, headers, conn):
     deleted = 0
     if ids_to_delete:
         ids_sql = ",".join(str(i) for i in ids_to_delete)
-        cur.execute(f"DELETE FROM {SCHEMA}.candidates WHERE id IN ({ids_sql})")
+        cur.execute(f"UPDATE {SCHEMA}.candidates SET trashed_at=NOW(), trashed_from='duplicates' WHERE id IN ({ids_sql}) AND trashed_at IS NULL")
         deleted = cur.rowcount
         conn.commit()
     cur.close()
@@ -731,12 +734,73 @@ def action_delete_empty_leads(headers, conn):
         return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
     cur = conn.cursor()
     cur.execute(
-        f"DELETE FROM {SCHEMA}.candidates WHERE is_lead = true AND (full_name = '' OR full_name IS NULL) AND ((phone = '' OR phone IS NULL) OR LENGTH(phone) > 15) RETURNING id"
+        f"UPDATE {SCHEMA}.candidates SET trashed_at=NOW(), trashed_from='leads' WHERE is_lead = true AND (full_name = '' OR full_name IS NULL) AND ((phone = '' OR phone IS NULL) OR LENGTH(phone) > 15) AND trashed_at IS NULL RETURNING id"
     )
     deleted = len(cur.fetchall())
     conn.commit()
     cur.close()
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "deleted": deleted})}
+
+
+def action_trash_list(headers, conn):
+    """Список записей в корзине. Только для администраторов."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
+    cur = conn.cursor()
+    cur.execute(
+        f"""SELECT id, full_name, phone, city, citizenship, is_lead, trashed_at, trashed_from, created_at, assigned_to, call_result
+            FROM {SCHEMA}.candidates
+            WHERE trashed_at IS NOT NULL
+            ORDER BY trashed_at DESC"""
+    )
+    rows = cur.fetchall()
+    cur.close()
+    result = []
+    for r in rows:
+        result.append({
+            "id": r[0], "fullName": r[1] or "", "phone": r[2] or "",
+            "city": r[3] or "", "citizenship": r[4] or "",
+            "isLead": r[5], "trashedAt": r[6].isoformat() if r[6] else None,
+            "trashedFrom": r[7] or "", "createdAt": str(r[8]) if r[8] else "",
+            "assignedTo": r[9] or "", "callResult": r[10] or "",
+        })
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"items": result, "total": len(result)}, ensure_ascii=False)}
+
+
+def action_trash_restore(body, headers, conn):
+    """Восстановить запись из корзины. Только для администраторов."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
+    candidate_id = int(body.get("id", 0))
+    cur = conn.cursor()
+    cur.execute(
+        f"UPDATE {SCHEMA}.candidates SET trashed_at=NULL, trashed_from=NULL WHERE id={candidate_id} AND trashed_at IS NOT NULL RETURNING id, trashed_from"
+    )
+    row = cur.fetchone()
+    conn.commit()
+    cur.close()
+    if not row:
+        return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Не найдено"})}
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "id": row[0]})}
+
+
+def action_trash_purge(body, headers, conn):
+    """Окончательно удалить запись из корзины навсегда. Только для администраторов."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
+    candidate_id = int(body.get("id", 0))
+    cur = conn.cursor()
+    cur.execute(f"SELECT 1 FROM {SCHEMA}.candidates WHERE id={candidate_id} AND trashed_at IS NOT NULL")
+    if not cur.fetchone():
+        cur.close()
+        return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Не найдено в корзине"})}
+    cur.execute(f"UPDATE {SCHEMA}.candidates SET trashed_at=NOW() WHERE id={candidate_id}")
+    conn.commit()
+    cur.close()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
 
 
 def action_announcements_get(event, conn):
@@ -1028,16 +1092,16 @@ def handler(event: dict, context) -> dict:
             if mode == "leads":
                 if session_user and session_user["role"] != "admin":
                     cur.execute(
-                        f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = true AND assigned_user_id = {int(session_user['id'])} ORDER BY created_at DESC, id DESC"
+                        f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = true AND assigned_user_id = {int(session_user['id'])} AND trashed_at IS NULL ORDER BY created_at DESC, id DESC"
                     )
                 else:
-                    cur.execute(f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = true ORDER BY created_at DESC, id DESC")
+                    cur.execute(f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = true AND trashed_at IS NULL ORDER BY created_at DESC, id DESC")
             elif session_user and session_user["role"] == "employee":
                 cur.execute(
-                    f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = false AND employee_name = {q(session_user['fullName'])} ORDER BY created_at DESC, id DESC"
+                    f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = false AND employee_name = {q(session_user['fullName'])} AND trashed_at IS NULL ORDER BY created_at DESC, id DESC"
                 )
             else:
-                cur.execute(f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = false ORDER BY created_at DESC, id DESC")
+                cur.execute(f"SELECT * FROM {SCHEMA}.candidates WHERE is_lead = false AND trashed_at IS NULL ORDER BY created_at DESC, id DESC")
             rows = [row_to_dict(r, cur) for r in cur.fetchall()]
             return {"statusCode": 200, "headers": CORS, "body": json.dumps(rows, ensure_ascii=False)}
 
@@ -1080,6 +1144,12 @@ def handler(event: dict, context) -> dict:
                 return action_get_duplicates(headers, conn)
             if action == "delete_duplicates":
                 return action_delete_duplicates(body, headers, conn)
+            if action == "trash_list":
+                return action_trash_list(headers, conn)
+            if action == "trash_restore":
+                return action_trash_restore(body, headers, conn)
+            if action == "trash_purge":
+                return action_trash_purge(body, headers, conn)
             session_user = get_session_user(conn, session_id)
             if not session_user:
                 return {"statusCode": 401, "headers": CORS, "body": json.dumps({"error": "Unauthorized"})}

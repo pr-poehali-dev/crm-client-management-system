@@ -140,6 +140,14 @@ export default function Users() {
             <span className="hidden md:inline">Дубли</span>
           </button>
           <button
+            onClick={() => navigate("/trash")}
+            className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors"
+            title="Корзина"
+          >
+            <Icon name="Trash2" size={14} />
+            <span className="hidden md:inline">Корзина</span>
+          </button>
+          <button
             onClick={() => navigate("/chat")}
             className="relative flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-white/10 transition-colors"
             title="Объявления"

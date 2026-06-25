@@ -98,6 +98,7 @@ export default function Duplicates() {
     ...(user?.role === "admin" ? [
       { path: "/users", icon: "Settings", label: "Сотрудники" },
       { path: "/duplicates", icon: "Copy", label: "Дубли" },
+      { path: "/trash", icon: "Trash2", label: "Корзина" },
     ] : []),
     { path: "/help", icon: "HelpCircle", label: "Помощь" },
   ];

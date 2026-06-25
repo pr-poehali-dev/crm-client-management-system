@@ -33,10 +33,10 @@ def handler(event: dict, context) -> dict:
 
         cur.execute(
             f"""SELECT array_agg(id) FROM {SCHEMA}.candidates
-                WHERE phone IS NOT NULL AND phone != ''
+                WHERE phone IS NOT NULL AND phone != '' AND trashed_at IS NULL
                 AND id NOT IN (
                     SELECT MIN(id) FROM {SCHEMA}.candidates
-                    WHERE phone IS NOT NULL AND phone != ''
+                    WHERE phone IS NOT NULL AND phone != '' AND trashed_at IS NULL
                     GROUP BY phone
                 )"""
         )
@@ -46,7 +46,7 @@ def handler(event: dict, context) -> dict:
         deleted = 0
         if ids_to_delete:
             ids_sql = ",".join(str(i) for i in ids_to_delete)
-            cur.execute(f"DELETE FROM {SCHEMA}.candidates WHERE id IN ({ids_sql})")
+            cur.execute(f"UPDATE {SCHEMA}.candidates SET trashed_at=NOW(), trashed_from='duplicates' WHERE id IN ({ids_sql}) AND trashed_at IS NULL")
             deleted = cur.rowcount
             conn.commit()
 

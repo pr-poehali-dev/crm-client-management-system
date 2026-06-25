@@ -12,6 +12,7 @@ import MyLeads from "./pages/MyLeads";
 import Help from "./pages/Help";
 import Chat from "./pages/Chat";
 import Duplicates from "./pages/Duplicates";
+import Trash from "./pages/Trash";
 import NotFound from "./pages/NotFound";
 import Icon from "@/components/ui/icon";
 
@@ -42,6 +43,7 @@ function AppRoutes() {
       <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
       <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
       <Route path="/duplicates" element={<ProtectedRoute adminOnly><Duplicates /></ProtectedRoute>} />
+      <Route path="/trash" element={<ProtectedRoute adminOnly><Trash /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
