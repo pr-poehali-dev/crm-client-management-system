@@ -142,6 +142,7 @@ def send_telegram(text: str):
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
     if not token or not chat_id:
+        print(f"[TG] Пропуск: token={bool(token)}, chat_id={bool(chat_id)}")
         return
     try:
         payload = json.dumps({"chat_id": chat_id, "text": text, "parse_mode": "HTML"}).encode()
@@ -150,9 +151,10 @@ def send_telegram(text: str):
             data=payload,
             headers={"Content-Type": "application/json"},
         )
-        urllib.request.urlopen(req, timeout=5)
-    except Exception:
-        pass
+        resp = urllib.request.urlopen(req, timeout=10)
+        print(f"[TG] Отправлено, статус: {resp.status}")
+    except Exception as e:
+        print(f"[TG] Ошибка отправки: {e}")
 
 
 def action_create(body, cur, conn):
