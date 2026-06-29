@@ -151,10 +151,14 @@ def send_telegram(text: str):
             data=payload,
             headers={"Content-Type": "application/json"},
         )
-        resp = urllib.request.urlopen(req, timeout=10)
-        print(f"[TG] Отправлено, статус: {resp.status}")
+        resp = urllib.request.urlopen(req, timeout=6)
+        resp_body = resp.read().decode("utf-8")
+        print(f"[TG] OK статус={resp.status} chat_id={chat_id[:6]}*** ответ={resp_body[:200]}")
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8")
+        print(f"[TG] HTTP ошибка {e.code}: {err_body[:300]}")
     except Exception as e:
-        print(f"[TG] Ошибка отправки: {e}")
+        print(f"[TG] Ошибка: {type(e).__name__}: {e}")
 
 
 def action_create(body, cur, conn):
