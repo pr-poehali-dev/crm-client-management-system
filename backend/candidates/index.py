@@ -181,28 +181,26 @@ def action_create(body, cur, conn):
     row = row_to_dict(cur.fetchone(), cur)
     conn.commit()
 
-    try:
-        g = lambda k, d="—": body.get(k) or d
-        inn_str = "✅ есть" if body.get("hasInn") else "❌ нет"
-        snils_str = "✅ есть" if body.get("hasSnils") else "❌ нет"
-        send_telegram(
-            f"👤 <b>Новый кандидат</b>\n\n"
-            f"<b>1. ФИО:</b> {g('fullName')}\n"
-            f"<b>2. Дата рождения:</b> {g('birthDate')}\n"
-            f"<b>3. Город проживания:</b> {g('city')}\n"
-            f"<b>4. Гражданство РФ:</b> {g('citizenship')}\n"
-            f"<b>5. Документы:</b>\n"
-            f"   ИНН — {inn_str}\n"
-            f"   СНИЛС — {snils_str}\n"
-            f"<b>6. Желаемая специальность:</b> {g('relations')}\n"
-            f"<b>7. Заболевания:</b> {g('chronicDiseases')}\n"
-            f"<b>8. Судимости:</b> {g('criminalRecord')}\n"
-            f"<b>9. Телефон:</b> {g('phone')}\n"
-            f"<b>10. Прибытие/билеты:</b> {g('arrivalDate')}\n\n"
-            f"<i>Сотрудник: {g('employeeName')} | {g('company')}</i>"
-        )
-    except Exception:
-        pass
+    g = lambda k, d="—": body.get(k) or d
+    inn_str = "✅ есть" if body.get("hasInn") else "❌ нет"
+    snils_str = "✅ есть" if body.get("hasSnils") else "❌ нет"
+    print(f"[CREATE] Кандидат создан, отправляю ТГ. employeeName={g('employeeName')} fullName={g('fullName')}")
+    send_telegram(
+        f"👤 <b>Новый кандидат</b>\n\n"
+        f"<b>1. ФИО:</b> {g('fullName')}\n"
+        f"<b>2. Дата рождения:</b> {g('birthDate')}\n"
+        f"<b>3. Город проживания:</b> {g('city')}\n"
+        f"<b>4. Гражданство РФ:</b> {g('citizenship')}\n"
+        f"<b>5. Документы:</b>\n"
+        f"   ИНН — {inn_str}\n"
+        f"   СНИЛС — {snils_str}\n"
+        f"<b>6. Желаемая специальность:</b> {g('relations')}\n"
+        f"<b>7. Заболевания:</b> {g('chronicDiseases')}\n"
+        f"<b>8. Судимости:</b> {g('criminalRecord')}\n"
+        f"<b>9. Телефон:</b> {g('phone')}\n"
+        f"<b>10. Прибытие/билеты:</b> {g('arrivalDate')}\n\n"
+        f"<i>Сотрудник: {g('employeeName')} | {g('company')}</i>"
+    )
 
     return {"statusCode": 201, "headers": CORS, "body": json.dumps(row, ensure_ascii=False)}
 
