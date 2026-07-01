@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { useUnread } from "@/hooks/useUnread";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ const CALL_RESULTS = [
   { value: "Перезвонит", label: "Перезвонит", color: { color: "#fff", background: "#16a34a", borderColor: "#15803d", fontWeight: "700" } },
   { value: "Дубль", label: "Дубль", color: { color: "#fff", background: "#dc2626", borderColor: "#b91c1c", fontWeight: "700" } },
 ];
+const CALL_RESULTS_MAP = new Map(CALL_RESULTS.map((r) => [r.value, r]));
 
 interface Lead {
   id: number;
@@ -118,15 +119,148 @@ function InfoRow({ label, value }: { label: string; value?: string }) {
   );
 }
 
-function CallResultBadge({ result }: { result: string }) {
-  const r = CALL_RESULTS.find((x) => x.value === result);
+const CallResultBadge = memo(function CallResultBadge({ result }: { result: string }) {
+  const r = CALL_RESULTS_MAP.get(result);
   if (!result || !r) return <span className="text-muted-foreground">—</span>;
   return (
     <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border" style={r.color}>
       {r.label}
     </span>
   );
+});
+
+interface LeadRowProps {
+  l: Lead;
+  idx: number;
+  isAdmin: boolean;
+  isMangoOrAdmin: boolean;
+  convertingId: number | null;
+  selectedIds: Set<number>;
+  onToggleSelect: (id: number) => void;
+  onToggleCalled: (id: number, called: boolean) => void;
+  onSetCallResult: (id: number, result: string) => void;
+  onOpenDetail: (id: number) => void;
+  onConvert: (id: number) => void;
+  onOpenColorPicker: (id: number, e: React.MouseEvent) => void;
+  onDelete: (id: number) => void;
+  onOpenComment: (id: number, comment: string) => void;
 }
+
+const LeadRow = memo(function LeadRow({
+  l, idx, isAdmin, isMangoOrAdmin, convertingId, selectedIds,
+  onToggleSelect, onSetCallResult, onOpenDetail, onConvert,
+  onOpenColorPicker, onDelete, onOpenComment,
+}: LeadRowProps) {
+  const isUncalled = !l.called && !l.callResult;
+  const rowBg = l.colorMark ? l.colorMark + "44" : undefined;
+  const rowBorder = l.colorMark ? `3px solid ${l.colorMark}` : undefined;
+  const callResultStyle = CALL_RESULTS_MAP.get(l.callResult || "")?.color ?? { color: "#888", borderColor: "#e2e8f0", background: "white" };
+  return (
+    <tr className="border-b border-border hover:bg-muted/40 transition-colors group animate-fade-in" style={{ background: rowBg || "white", borderLeft: rowBorder }}>
+      {isAdmin && (
+        <td className="px-3 py-2">
+          {isUncalled && (
+            <input
+              type="checkbox"
+              checked={selectedIds.has(l.id)}
+              onChange={() => onToggleSelect(l.id)}
+              className="cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+        </td>
+      )}
+      <td className="px-3 py-2 text-muted-foreground font-mono">{idx + 1}</td>
+      <td className="px-3 py-2 font-semibold whitespace-nowrap max-w-[160px] truncate">{l.fullName || <span className="text-muted-foreground italic">Без имени</span>}</td>
+      <td className="px-3 py-2 whitespace-nowrap">
+        {isMangoOrAdmin ? (
+          l.phone ? (
+            <button
+              className="font-mono text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+              title="Открыть карточку"
+              onClick={(e) => { e.stopPropagation(); onOpenDetail(l.id); }}
+            >
+              {l.phone}
+            </button>
+          ) : <span className="text-muted-foreground">—</span>
+        ) : (
+          <span className="text-muted-foreground flex items-center gap-1">
+            <Icon name="Lock" size={11} />
+            Скрыт
+          </span>
+        )}
+      </td>
+      <td className="px-3 py-2 whitespace-nowrap">{l.city || <span className="text-muted-foreground">—</span>}</td>
+      <td className="px-3 py-2 whitespace-nowrap">{l.citizenship || <span className="text-muted-foreground">—</span>}</td>
+      <td className="px-3 py-2 max-w-[200px]">
+        <div className="truncate text-muted-foreground">{l.notes || "—"}</div>
+      </td>
+      <td className="px-3 py-2 font-mono text-muted-foreground whitespace-nowrap">{l.createdAt ? new Date(l.createdAt).toLocaleDateString("ru-RU") : "—"}</td>
+      <td className="px-3 py-2">
+        <select
+          value={l.callResult || ""}
+          onChange={(e) => onSetCallResult(l.id, e.target.value)}
+          className="text-[11px] rounded px-1.5 py-0.5 border cursor-pointer focus:outline-none font-medium"
+          style={callResultStyle}
+        >
+          <option value="">Выбрать</option>
+          {CALL_RESULTS.map((r) => (
+            <option key={r.value} value={r.value}>{r.label}</option>
+          ))}
+        </select>
+      </td>
+      <td className="px-3 py-2 whitespace-nowrap">
+        {l.assignedTo
+          ? <span className="flex items-center gap-1 text-[11px] text-slate-600"><Icon name="User" size={10} />{l.assignedTo}</span>
+          : <span className="text-muted-foreground">—</span>
+        }
+      </td>
+      <td className="px-3 py-2 max-w-[180px] relative">
+        <button
+          onClick={() => onOpenComment(l.id, l.callComment || "")}
+          className="text-left w-full text-[11px] text-muted-foreground hover:text-foreground group/comment flex items-center gap-1"
+          title={l.callComment || "Добавить комментарий"}
+        >
+          {l.callComment
+            ? <span className="truncate text-foreground/80">{l.callComment}</span>
+            : <span className="opacity-0 group-hover/comment:opacity-60 italic">+ добавить</span>
+          }
+          <Icon name="Pencil" size={10} className="shrink-0 opacity-0 group-hover/comment:opacity-50" />
+        </button>
+      </td>
+      <td className="px-3 py-2 sticky right-0 bg-white group-hover:bg-amber-50/40">
+        <div className="flex items-center gap-0.5">
+          <button onClick={() => onOpenDetail(l.id)} className="p-1 rounded hover:bg-blue-100 text-blue-600 transition-colors" title="Подробнее">
+            <Icon name="Eye" size={13} />
+          </button>
+          <button
+            onClick={() => onConvert(l.id)}
+            disabled={convertingId === l.id}
+            className="p-1 rounded hover:bg-green-100 text-green-700 transition-colors disabled:opacity-50"
+            title="Перевести в кандидаты"
+          >
+            <Icon name={convertingId === l.id ? "Loader2" : "UserCheck"} size={13} className={convertingId === l.id ? "animate-spin" : ""} />
+          </button>
+          {isAdmin && (
+            <>
+              <button
+                onClick={(e) => onOpenColorPicker(l.id, e)}
+                className="p-1 rounded hover:bg-purple-50 transition-colors"
+                title="Цвет пометки"
+                style={{ color: l.colorMark || "#94a3b8" }}
+              >
+                <Icon name="Palette" size={13} />
+              </button>
+              <button onClick={() => onDelete(l.id)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors" title="Удалить">
+                <Icon name="Trash2" size={13} />
+              </button>
+            </>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+});
 
 export default function Leads() {
   const { user, logout, token } = useAuth();
@@ -168,11 +302,11 @@ export default function Leads() {
     return () => { clearTimeout(timer); document.removeEventListener("click", close); };
   }, [colorPickerId]);
 
-  const openColorPicker = (id: number, e: React.MouseEvent) => {
+  const openColorPicker = useCallback((id: number, e: React.MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setColorPickerPos({ x: rect.left, y: rect.bottom + 4 });
-    setColorPickerId(colorPickerId === id ? null : id);
-  };
+    setColorPickerId((prev) => (prev === id ? null : id));
+  }, []);
 
   const loadCallLog = useCallback(async (candidateId: number) => {
     setCallLogLoading(true);
@@ -224,17 +358,23 @@ export default function Leads() {
     });
   }, [isAdmin, token]);
 
-  const employees = Array.from(new Set(leads.map((l) => l.assignedTo).filter(Boolean))).sort();
+  const employees = useMemo(
+    () => Array.from(new Set(leads.map((l) => l.assignedTo).filter(Boolean))).sort(),
+    [leads]
+  );
 
-  const filtered = leads.filter((l) => {
-    if (showUncalled && l.called) return false;
-    if (filterEmployee && l.assignedTo !== filterEmployee) return false;
-    return [l.fullName, l.phone, l.city].some((v) =>
-      v.toLowerCase().includes(search.toLowerCase())
-    );
-  });
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return leads.filter((l) => {
+      if (showUncalled && l.called) return false;
+      if (filterEmployee && l.assignedTo !== filterEmployee) return false;
+      return !q || [l.fullName, l.phone, l.city].some((v) => v.toLowerCase().includes(q));
+    });
+  }, [leads, search, showUncalled, filterEmployee]);
 
-  const handleConvert = async (id: number) => {
+  const leadsMap = useMemo(() => new Map(leads.map((l) => [l.id, l])), [leads]);
+
+  const handleConvert = useCallback(async (id: number) => {
     setConvertingId(id);
     try {
       await fetch(API, {
@@ -243,25 +383,25 @@ export default function Leads() {
         body: JSON.stringify({ action: "convert_lead", id }),
       });
       setLeads((prev) => prev.filter((l) => l.id !== id));
-      if (detailId === id) setDetailId(null);
+      setDetailId((prev) => prev === id ? null : prev);
     } finally {
       setConvertingId(null);
     }
-  };
+  }, [token]);
 
-  const handleToggleCalled = async (id: number, called: boolean) => {
+  const handleToggleCalled = useCallback(async (id: number, called: boolean) => {
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, called } : l));
     await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
       body: JSON.stringify({ action: "toggle_called", id, called }),
     });
-  };
+  }, [token]);
 
   const RESULTS_NEED_ASSIGN = ["Недозвон", "Занято", "Заинтересован", "Перезвонит"];
 
   const handleSetCallResult = async (id: number, result: string, comment?: string, assignedTo?: string) => {
-    const lead = leads.find((l) => l.id === id);
+    const lead = leadsMap.get(id);
     const newComment = comment !== undefined ? comment : (lead?.callComment || "");
     // Если результат требует ФИО — и оно ещё не задано, показываем попап
     if (RESULTS_NEED_ASSIGN.includes(result) && !assignedTo) {
@@ -289,7 +429,7 @@ export default function Leads() {
   };
 
   const handleSaveComment = async (id: number, comment: string) => {
-    const lead = leads.find((l) => l.id === id);
+    const lead = leadsMap.get(id);
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, callComment: comment } : l));
     setCommentEditId(null);
     await fetch(API, {
@@ -299,13 +439,13 @@ export default function Leads() {
     });
   };
 
-  const toggleSelect = (id: number) => {
+  const toggleSelect = useCallback((id: number) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
-  };
+  }, []);
 
   const toggleSelectAll = () => {
     const uncalledFiltered = filtered.filter((l) => !l.called && !l.callResult);
@@ -347,15 +487,29 @@ export default function Leads() {
     });
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = useCallback(async (id: number) => {
     await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
       body: JSON.stringify({ action: "delete", id }),
     });
     setLeads((prev) => prev.filter((l) => l.id !== id));
-    if (detailId === id) setDetailId(null);
-  };
+    setDetailId((prev) => prev === id ? null : prev);
+  }, [token]);
+
+  const handleOpenDetail = useCallback((id: number) => {
+    setDetailId(id);
+    loadCallLog(id);
+  }, [loadCallLog]);
+
+  const handleOpenComment = useCallback((id: number, comment: string) => {
+    setCommentEditId(id);
+    setCommentDraft(comment);
+  }, []);
+
+  const handleSetCallResultCb = useCallback((id: number, result: string) => {
+    handleSetCallResult(id, result);
+  }, [leadsMap, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
@@ -457,8 +611,8 @@ export default function Leads() {
     XLSX.writeFile(wb, `leads_${date}.xlsx`);
   };
 
-  const detail = detailId !== null ? leads.find((l) => l.id === detailId) : null;
-  const commentLead = commentEditId !== null ? leads.find((l) => l.id === commentEditId) : null;
+  const detail = detailId !== null ? leadsMap.get(detailId) ?? null : null;
+  const commentLead = commentEditId !== null ? leadsMap.get(commentEditId) ?? null : null;
 
   useEffect(() => {
     if (detail) {
@@ -798,120 +952,25 @@ export default function Leads() {
                   </td>
                 </tr>
               )}
-              {filtered.map((l, idx) => {
-                const isUncalled = !l.called && !l.callResult;
-                const rowBg = l.colorMark ? l.colorMark + "44" : undefined;
-                const rowBorder = l.colorMark ? `3px solid ${l.colorMark}` : undefined;
-                return (
-                <tr key={l.id} className="border-b border-border hover:bg-muted/40 transition-colors group animate-fade-in" style={{ background: rowBg || "white", borderLeft: rowBorder }}>
-                  {isAdmin && (
-                    <td className="px-3 py-2">
-                      {isUncalled && (
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(l.id)}
-                          onChange={() => toggleSelect(l.id)}
-                          className="cursor-pointer"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      )}
-                    </td>
-                  )}
-                  <td className="px-3 py-2 text-muted-foreground font-mono">{idx + 1}</td>
-                  <td className="px-3 py-2 font-semibold whitespace-nowrap max-w-[160px] truncate">{l.fullName || <span className="text-muted-foreground italic">Без имени</span>}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {(user?.mangoVerified || user?.role === "admin") ? (
-                      l.phone ? (
-                        <button
-                          className="font-mono text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-                          title="Открыть карточку"
-                          onClick={(e) => { e.stopPropagation(); setDetailId(l.id); loadCallLog(l.id); }}
-                        >
-                          {l.phone}
-                        </button>
-                      ) : <span className="text-muted-foreground">—</span>
-                    ) : (
-                      <span className="text-muted-foreground flex items-center gap-1">
-                        <Icon name="Lock" size={11} />
-                        Скрыт
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">{l.city || <span className="text-muted-foreground">—</span>}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{l.citizenship || <span className="text-muted-foreground">—</span>}</td>
-                  <td className="px-3 py-2 max-w-[200px]">
-                    <div className="truncate text-muted-foreground">{l.notes || "—"}</div>
-                  </td>
-                  <td className="px-3 py-2 font-mono text-muted-foreground whitespace-nowrap">{l.createdAt ? new Date(l.createdAt).toLocaleDateString("ru-RU") : "—"}</td>
-                  <td className="px-3 py-2">
-                    <select
-                      value={l.callResult || ""}
-                      onChange={(e) => handleSetCallResult(l.id, e.target.value)}
-                      className="text-[11px] rounded px-1.5 py-0.5 border cursor-pointer focus:outline-none font-medium"
-                      style={(() => {
-                        const r = CALL_RESULTS.find((r) => r.value === l.callResult);
-                        return r ? r.color : { color: "#888", borderColor: "#e2e8f0", background: "white" };
-                      })()}
-                    >
-                      <option value="">Выбрать</option>
-                      {CALL_RESULTS.map((r) => (
-                        <option key={r.value} value={r.value}>{r.label}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {l.assignedTo
-                      ? <span className="flex items-center gap-1 text-[11px] text-slate-600"><Icon name="User" size={10} />{l.assignedTo}</span>
-                      : <span className="text-muted-foreground">—</span>
-                    }
-                  </td>
-                  <td className="px-3 py-2 max-w-[180px] relative">
-                    <button
-                      onClick={() => { setCommentEditId(l.id); setCommentDraft(l.callComment || ""); }}
-                      className="text-left w-full text-[11px] text-muted-foreground hover:text-foreground group/comment flex items-center gap-1"
-                      title={l.callComment || "Добавить комментарий"}
-                    >
-                      {l.callComment
-                        ? <span className="truncate text-foreground/80">{l.callComment}</span>
-                        : <span className="opacity-0 group-hover/comment:opacity-60 italic">+ добавить</span>
-                      }
-                      <Icon name="Pencil" size={10} className="shrink-0 opacity-0 group-hover/comment:opacity-50" />
-                    </button>
-
-                  </td>
-                  <td className="px-3 py-2 sticky right-0 bg-white group-hover:bg-amber-50/40">
-                    <div className="flex items-center gap-0.5">
-                      <button onClick={() => { setDetailId(l.id); loadCallLog(l.id); }} className="p-1 rounded hover:bg-blue-100 text-blue-600 transition-colors" title="Подробнее">
-                        <Icon name="Eye" size={13} />
-                      </button>
-                      <button
-                        onClick={() => handleConvert(l.id)}
-                        disabled={convertingId === l.id}
-                        className="p-1 rounded hover:bg-green-100 text-green-700 transition-colors disabled:opacity-50"
-                        title="Перевести в кандидаты"
-                      >
-                        <Icon name={convertingId === l.id ? "Loader2" : "UserCheck"} size={13} className={convertingId === l.id ? "animate-spin" : ""} />
-                      </button>
-                      {isAdmin && (
-                        <>
-                          <button
-                            onClick={(e) => openColorPicker(l.id, e)}
-                            className="p-1 rounded hover:bg-purple-50 transition-colors"
-                            title="Цвет пометки"
-                            style={{ color: l.colorMark || "#94a3b8" }}
-                          >
-                            <Icon name="Palette" size={13} />
-                          </button>
-                          <button onClick={() => handleDelete(l.id)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors" title="Удалить">
-                            <Icon name="Trash2" size={13} />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-                );
-              })}
+              {filtered.map((l, idx) => (
+                <LeadRow
+                  key={l.id}
+                  l={l}
+                  idx={idx}
+                  isAdmin={isAdmin}
+                  isMangoOrAdmin={!!(user?.mangoVerified || user?.role === "admin")}
+                  convertingId={convertingId}
+                  selectedIds={selectedIds}
+                  onToggleSelect={toggleSelect}
+                  onToggleCalled={handleToggleCalled}
+                  onSetCallResult={handleSetCallResultCb}
+                  onOpenDetail={handleOpenDetail}
+                  onConvert={handleConvert}
+                  onOpenColorPicker={openColorPicker}
+                  onDelete={handleDelete}
+                  onOpenComment={handleOpenComment}
+                />
+              ))}
             </tbody>
           </table>
         )}
@@ -1143,7 +1202,7 @@ export default function Leads() {
 
       {/* Color picker portal */}
       {colorPickerId !== null && (() => {
-        const l = leads.find((x) => x.id === colorPickerId);
+        const l = leadsMap.get(colorPickerId);
         if (!l) return null;
         return (
           <div
