@@ -156,7 +156,7 @@ const LeadRow = memo(function LeadRow({
   const rowBorder = l.colorMark ? `3px solid ${l.colorMark}` : undefined;
   const callResultStyle = CALL_RESULTS_MAP.get(l.callResult || "")?.color ?? { color: "#888", borderColor: "#e2e8f0", background: "white" };
   return (
-    <tr className="border-b border-border hover:bg-muted/40 transition-colors group animate-fade-in" style={{ background: rowBg || "white", borderLeft: rowBorder }}>
+    <tr className="border-b border-border hover:bg-muted/40 transition-colors group" style={{ background: rowBg || "white", borderLeft: rowBorder }}>
       {isAdmin && (
         <td className="px-3 py-2">
           {isUncalled && (
@@ -323,7 +323,13 @@ export default function Leads() {
   }, [token]);
 
   const loadLeads = useCallback(async () => {
-    setLoading(true);
+    const CACHE_KEY = "leads_cache";
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try { setLeads(JSON.parse(cached)); setLoading(false); } catch (e) { console.error(e); }
+    } else {
+      setLoading(true);
+    }
     setLoadError(false);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
@@ -334,7 +340,9 @@ export default function Leads() {
       });
       const raw = await res.text();
       const data: ApiLead[] = JSON.parse(raw);
-      setLeads(data.map(fromApi));
+      const mapped = data.map(fromApi);
+      setLeads(mapped);
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(mapped));
     } catch (e) {
       console.error("Load leads error", e);
       setLoadError(true);

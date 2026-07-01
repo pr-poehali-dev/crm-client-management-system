@@ -310,7 +310,7 @@ const CandidateRow = memo(function CandidateRow({
   const rowBg = c.colorMark ? c.colorMark + "44" : hasContract ? "#bbf7d0" : "white";
   const rowBorderLeft = c.colorMark ? `3px solid ${c.colorMark}` : hasContract ? "3px solid #16a34a" : undefined;
   return (
-    <tr className="border-b border-border hover:bg-blue-50/50 transition-colors group animate-fade-in" style={{ background: rowBg, borderLeft: rowBorderLeft }}>
+    <tr className="border-b border-border hover:bg-blue-50/50 transition-colors group" style={{ background: rowBg, borderLeft: rowBorderLeft }}>
       <td className="px-2 py-2 text-muted-foreground font-mono">{idx + 1}</td>
       <td className="px-2 py-2 font-semibold whitespace-nowrap max-w-[160px] truncate">{c.fullName}</td>
       <td className="px-2 py-2 whitespace-nowrap font-mono">{c.phone || <span className="text-muted-foreground">—</span>}</td>
@@ -410,13 +410,21 @@ export default function Index() {
   };
 
   const loadCandidates = useCallback(async () => {
-    setLoading(true);
+    const CACHE_KEY = "candidates_cache";
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try { setCandidates(JSON.parse(cached)); setLoading(false); } catch (e) { console.error(e); }
+    } else {
+      setLoading(true);
+    }
     try {
       const res = await fetch(API, {
         headers: token ? { "X-Session-Id": token } : {},
       });
       const data: ApiCandidate[] = JSON.parse(await res.text());
-      setCandidates(data.map(fromApi));
+      const mapped = data.map(fromApi);
+      setCandidates(mapped);
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(mapped));
     } catch (e) {
       console.error("Load error", e);
     } finally {
@@ -514,7 +522,7 @@ export default function Index() {
           body: JSON.stringify({ action: "update", id: editingId, ...toApi(form) }),
         });
         const updated = fromApi(JSON.parse(await res.text()));
-        setCandidates((prev) => prev.map((c) => (c.id === editingId ? updated : c)));
+        setCandidates((prev) => { const next = prev.map((c) => (c.id === editingId ? updated : c)); sessionStorage.setItem("candidates_cache", JSON.stringify(next)); return next; });
       } else {
         const res = await fetch(API, {
           method: "POST",
@@ -522,9 +530,7 @@ export default function Index() {
           body: JSON.stringify({ action: "create", ...toApi(form) }),
         });
         const created = fromApi(JSON.parse(await res.text()));
-        setCandidates((prev) => [created, ...prev]);
-
-
+        setCandidates((prev) => { const next = [created, ...prev]; sessionStorage.setItem("candidates_cache", JSON.stringify(next)); return next; });
       }
       setIsModalOpen(false);
     } finally {
@@ -538,7 +544,7 @@ export default function Index() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "delete", id }),
     });
-    setCandidates((prev) => prev.filter((c) => c.id !== id));
+    setCandidates((prev) => { const next = prev.filter((c) => c.id !== id); sessionStorage.setItem("candidates_cache", JSON.stringify(next)); return next; });
   }, []);
 
   const [revertingId, setRevertingId] = useState<number | null>(null);
