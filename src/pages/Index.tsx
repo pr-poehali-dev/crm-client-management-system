@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
 import { useUnread } from "@/hooks/useUnread";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -258,12 +258,12 @@ function FilesUploadCell({ files, onAdd, label }: {
   );
 }
 
-function StatusBadge({ value }: { value: string }) {
+const StatusBadge = memo(function StatusBadge({ value }: { value: string }) {
   const lower = (value || "").toLowerCase().trim();
   if (!lower || lower === "нет")
     return <span className="inline-flex text-xs px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">Нет</span>;
   return <span className="inline-flex text-xs px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200">{value}</span>;
-}
+});
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -291,6 +291,80 @@ function Th({ children, tip }: { children: React.ReactNode; tip?: string }) {
     </th>
   );
 }
+
+interface CandidateRowProps {
+  c: Candidate;
+  idx: number;
+  isAdmin: boolean;
+  onToggleCalled: (id: number, called: boolean) => void;
+  onOpenEdit: (c: Candidate) => void;
+  onOpenDetail: (id: number) => void;
+  onOpenColorPicker: (id: number, e: React.MouseEvent) => void;
+  onDelete: (id: number) => void;
+}
+
+const CandidateRow = memo(function CandidateRow({
+  c, idx, isAdmin, onToggleCalled, onOpenEdit, onOpenDetail, onOpenColorPicker, onDelete,
+}: CandidateRowProps) {
+  const hasContract = c.contractPhotos.length > 0;
+  const rowBg = c.colorMark ? c.colorMark + "44" : hasContract ? "#bbf7d0" : "white";
+  const rowBorderLeft = c.colorMark ? `3px solid ${c.colorMark}` : hasContract ? "3px solid #16a34a" : undefined;
+  return (
+    <tr className="border-b border-border hover:bg-blue-50/50 transition-colors group animate-fade-in" style={{ background: rowBg, borderLeft: rowBorderLeft }}>
+      <td className="px-2 py-2 text-muted-foreground font-mono">{idx + 1}</td>
+      <td className="px-2 py-2 font-semibold whitespace-nowrap max-w-[160px] truncate">{c.fullName}</td>
+      <td className="px-2 py-2 whitespace-nowrap font-mono">{c.phone || <span className="text-muted-foreground">—</span>}</td>
+      <td className="px-2 py-2 text-center font-mono">{c.age}</td>
+      <td className="px-2 py-2"><StatusBadge value={c.criminalRecord} /></td>
+      <td className="px-2 py-2"><StatusBadge value={c.chronicDiseases} /></td>
+      <td className="px-2 py-2"><StatusBadge value={c.dispensaryRecord} /></td>
+      <td className="px-2 py-2 max-w-[120px]">
+        <div className="truncate text-muted-foreground">{c.notes || "—"}</div>
+      </td>
+      <td className="px-2 py-2 text-center">{c.docPhotos.length > 0 ? <span className="text-blue-700 font-medium">{c.docPhotos.length}</span> : <span className="text-muted-foreground">—</span>}</td>
+      <td className="px-2 py-2 text-center">{c.relationPhotos.length > 0 ? <span className="text-blue-700 font-medium">{c.relationPhotos.length}</span> : <span className="text-muted-foreground">—</span>}</td>
+      <td className="px-2 py-2 text-center">{c.tickets.length > 0 ? <span className="text-blue-700 font-medium">{c.tickets.length}</span> : <span className="text-muted-foreground">—</span>}</td>
+      <td className="px-2 py-2 text-center">{c.contractPhotos.length > 0 ? <span className="text-blue-700 font-medium">{c.contractPhotos.length}</span> : <span className="text-muted-foreground">—</span>}</td>
+      <td className="px-2 py-2 whitespace-nowrap max-w-[120px] truncate">{c.employeeName || "—"}</td>
+      <td className="px-2 py-2 whitespace-nowrap max-w-[120px] truncate">{c.company || "—"}</td>
+      <td className="px-2 py-2 font-mono text-muted-foreground whitespace-nowrap">{c.createdAt}</td>
+      <td className="px-2 py-2 text-center">
+        <button
+          onClick={() => onToggleCalled(c.id, !c.called)}
+          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${c.called ? "bg-green-500 border-green-500 text-white" : "border-gray-300 hover:border-green-400"}`}
+          title={c.called ? "Прозвонен" : "Отметить как прозвоненный"}
+        >
+          {c.called && <Icon name="Check" size={11} />}
+        </button>
+      </td>
+      <td className="px-2 py-2 sticky right-0 bg-white group-hover:bg-blue-50/50">
+        <div className="flex items-center gap-0.5">
+          <button onClick={() => onOpenDetail(c.id)} className="p-1 rounded hover:bg-blue-100 text-blue-600 transition-colors" title="Подробнее">
+            <Icon name="Eye" size={13} />
+          </button>
+          <button onClick={() => onOpenEdit(c)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Редактировать">
+            <Icon name="Pencil" size={13} />
+          </button>
+          {isAdmin && (
+            <>
+              <button
+                onClick={(e) => onOpenColorPicker(c.id, e)}
+                className="p-1 rounded hover:bg-purple-50 transition-colors"
+                title="Цвет пометки"
+                style={{ color: c.colorMark || "#94a3b8" }}
+              >
+                <Icon name="Palette" size={13} />
+              </button>
+              <button onClick={() => onDelete(c.id)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors" title="Удалить">
+                <Icon name="Trash2" size={13} />
+              </button>
+            </>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+});
 
 export default function Index() {
   const { user, logout, token } = useAuth();
@@ -360,21 +434,26 @@ export default function Index() {
       .catch(() => {});
   }, [token]);
 
-  const filtered = candidates.filter((c) => {
-    if (showUncalled && c.called) return false;
-    return [c.fullName, c.employeeName, c.age].some((v) =>
-      v.toLowerCase().includes(search.toLowerCase())
-    );
-  });
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return candidates.filter((c) => {
+      if (showUncalled && c.called) return false;
+      return !q || [c.fullName, c.employeeName, c.age].some((v) => v.toLowerCase().includes(q));
+    });
+  }, [candidates, search, showUncalled]);
 
-  const handleToggleCalled = async (id: number, called: boolean) => {
+  const candidatesMap = useMemo(() =>
+    new Map(candidates.map((c) => [c.id, c])),
+  [candidates]);
+
+  const handleToggleCalled = useCallback(async (id: number, called: boolean) => {
     setCandidates((prev) => prev.map((c) => c.id === id ? { ...c, called } : c));
     await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
       body: JSON.stringify({ action: "toggle_called", id, called }),
     });
-  };
+  }, [token]);
 
   const handleSetColor = async (id: number, color: string) => {
     setCandidates((prev) => prev.map((c) => c.id === id ? { ...c, colorMark: color } : c));
@@ -420,10 +499,10 @@ export default function Index() {
     setEditingId(null);
     setIsModalOpen(true);
   };
-  const openEdit = (c: Candidate) => {
+  const openEdit = useCallback((c: Candidate) => {
     const { id, createdAt, ...rest } = c;
     setForm(rest); setEditingId(id); setIsModalOpen(true);
-  };
+  }, []);
 
   const handleSave = async () => {
     setSaving(true);
@@ -453,14 +532,14 @@ export default function Index() {
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = useCallback(async (id: number) => {
     await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "delete", id }),
     });
     setCandidates((prev) => prev.filter((c) => c.id !== id));
-  };
+  }, []);
 
   const [revertingId, setRevertingId] = useState<number | null>(null);
   const [colorPickerId, setColorPickerId] = useState<number | null>(null);
@@ -473,11 +552,11 @@ export default function Index() {
     return () => { clearTimeout(timer); document.removeEventListener("click", close); };
   }, [colorPickerId]);
 
-  const openColorPicker = (id: number, e: React.MouseEvent) => {
+  const openColorPicker = useCallback((id: number, e: React.MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setColorPickerPos({ x: rect.left, y: rect.bottom + 4 });
-    setColorPickerId(colorPickerId === id ? null : id);
-  };
+    setColorPickerId((prev) => (prev === id ? null : id));
+  }, []);
   const handleRevertToLead = async (id: number) => {
     if (!confirm("Вернуть кандидата обратно в лиды?")) return;
     setRevertingId(id);
@@ -635,66 +714,19 @@ export default function Index() {
                   </td>
                 </tr>
               )}
-              {filtered.map((c, idx) => {
-                const hasContract = c.contractPhotos.length > 0;
-                const rowBg = c.colorMark ? c.colorMark + "44" : hasContract ? "#bbf7d0" : "white";
-                const rowBorderLeft = c.colorMark ? `3px solid ${c.colorMark}` : hasContract ? "3px solid #16a34a" : undefined;
-                return (
-                <tr key={c.id} className="border-b border-border hover:bg-blue-50/50 transition-colors group animate-fade-in" style={{ background: rowBg, borderLeft: rowBorderLeft }}>
-                  <td className="px-2 py-2 text-muted-foreground font-mono">{idx + 1}</td>
-                  <td className="px-2 py-2 font-semibold whitespace-nowrap max-w-[160px] truncate">{c.fullName}</td>
-                  <td className="px-2 py-2 whitespace-nowrap font-mono">{c.phone || <span className="text-muted-foreground">—</span>}</td>
-                  <td className="px-2 py-2 text-center font-mono">{c.age}</td>
-                  <td className="px-2 py-2"><StatusBadge value={c.criminalRecord} /></td>
-                  <td className="px-2 py-2"><StatusBadge value={c.chronicDiseases} /></td>
-                  <td className="px-2 py-2"><StatusBadge value={c.dispensaryRecord} /></td>
-                  <td className="px-2 py-2 max-w-[120px]">
-                    <div className="truncate text-muted-foreground">{c.notes || "—"}</div>
-                  </td>
-                  <td className="px-2 py-2 text-center">{c.docPhotos.length > 0 ? <span className="text-blue-700 font-medium">{c.docPhotos.length}</span> : <span className="text-muted-foreground">—</span>}</td>
-                  <td className="px-2 py-2 text-center">{c.relationPhotos.length > 0 ? <span className="text-blue-700 font-medium">{c.relationPhotos.length}</span> : <span className="text-muted-foreground">—</span>}</td>
-                  <td className="px-2 py-2 text-center">{c.tickets.length > 0 ? <span className="text-blue-700 font-medium">{c.tickets.length}</span> : <span className="text-muted-foreground">—</span>}</td>
-                  <td className="px-2 py-2 text-center">{c.contractPhotos.length > 0 ? <span className="text-blue-700 font-medium">{c.contractPhotos.length}</span> : <span className="text-muted-foreground">—</span>}</td>
-                  <td className="px-2 py-2 whitespace-nowrap max-w-[120px] truncate">{c.employeeName || "—"}</td>
-                  <td className="px-2 py-2 whitespace-nowrap max-w-[120px] truncate">{c.company || "—"}</td>
-                  <td className="px-2 py-2 font-mono text-muted-foreground whitespace-nowrap">{c.createdAt}</td>
-                  <td className="px-2 py-2 text-center">
-                    <button
-                      onClick={() => handleToggleCalled(c.id, !c.called)}
-                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${c.called ? "bg-green-500 border-green-500 text-white" : "border-gray-300 hover:border-green-400"}`}
-                      title={c.called ? "Прозвонен" : "Отметить как прозвоненный"}
-                    >
-                      {c.called && <Icon name="Check" size={11} />}
-                    </button>
-                  </td>
-                  <td className="px-2 py-2 sticky right-0 bg-white group-hover:bg-blue-50/50">
-                    <div className="flex items-center gap-0.5">
-                      <button onClick={() => setDetailId(c.id)} className="p-1 rounded hover:bg-blue-100 text-blue-600 transition-colors" title="Подробнее">
-                        <Icon name="Eye" size={13} />
-                      </button>
-                      <button onClick={() => openEdit(c)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Редактировать">
-                        <Icon name="Pencil" size={13} />
-                      </button>
-                      {isAdmin && (
-                        <>
-                          <button
-                            onClick={(e) => openColorPicker(c.id, e)}
-                            className="p-1 rounded hover:bg-purple-50 transition-colors"
-                            title="Цвет пометки"
-                            style={{ color: c.colorMark || "#94a3b8" }}
-                          >
-                            <Icon name="Palette" size={13} />
-                          </button>
-                          <button onClick={() => handleDelete(c.id)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors" title="Удалить">
-                            <Icon name="Trash2" size={13} />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-                );
-              })}
+              {filtered.map((c, idx) => (
+                <CandidateRow
+                  key={c.id}
+                  c={c}
+                  idx={idx}
+                  isAdmin={isAdmin}
+                  onToggleCalled={handleToggleCalled}
+                  onOpenEdit={openEdit}
+                  onOpenDetail={setDetailId}
+                  onOpenColorPicker={openColorPicker}
+                  onDelete={handleDelete}
+                />
+              ))}
             </tbody>
           </table>
         )}
@@ -702,7 +734,7 @@ export default function Index() {
 
       {/* Color picker portal */}
       {colorPickerId !== null && (() => {
-        const c = candidates.find((x) => x.id === colorPickerId);
+        const c = candidatesMap.get(colorPickerId);
         if (!c) return null;
         return (
           <div
