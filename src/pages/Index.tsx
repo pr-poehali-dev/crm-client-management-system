@@ -450,6 +450,15 @@ export default function Index() {
     });
   }, [candidates, search, showUncalled]);
 
+  const PAGE_SIZE = 50;
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [search, showUncalled]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
+
   const candidatesMap = useMemo(() =>
     new Map(candidates.map((c) => [c.id, c])),
   [candidates]);
@@ -720,11 +729,11 @@ export default function Index() {
                   </td>
                 </tr>
               )}
-              {filtered.map((c, idx) => (
+              {paginated.map((c, idx) => (
                 <CandidateRow
                   key={c.id}
                   c={c}
-                  idx={idx}
+                  idx={(page - 1) * PAGE_SIZE + idx}
                   isAdmin={isAdmin}
                   onToggleCalled={handleToggleCalled}
                   onOpenEdit={openEdit}
@@ -737,6 +746,24 @@ export default function Index() {
           </table>
         )}
       </div>
+
+      {!loading && filtered.length > 0 && (
+        <div className="flex items-center justify-between px-2 py-2 border-t border-border">
+          <span className="text-xs text-muted-foreground">
+            Страница {page} из {totalPages}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+              <Icon name="ChevronLeft" size={14} />
+              Назад
+            </Button>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+              Вперёд
+              <Icon name="ChevronRight" size={14} />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Color picker portal */}
       {colorPickerId !== null && (() => {

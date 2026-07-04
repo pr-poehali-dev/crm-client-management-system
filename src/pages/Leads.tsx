@@ -380,6 +380,15 @@ export default function Leads() {
     });
   }, [leads, search, showUncalled, filterEmployee]);
 
+  const PAGE_SIZE = 50;
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [search, showUncalled, filterEmployee]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
+
   const leadsMap = useMemo(() => new Map(leads.map((l) => [l.id, l])), [leads]);
 
   const handleConvert = useCallback(async (id: number) => {
@@ -960,11 +969,11 @@ export default function Leads() {
                   </td>
                 </tr>
               )}
-              {filtered.map((l, idx) => (
+              {paginated.map((l, idx) => (
                 <LeadRow
                   key={l.id}
                   l={l}
-                  idx={idx}
+                  idx={(page - 1) * PAGE_SIZE + idx}
                   isAdmin={isAdmin}
                   isMangoOrAdmin={!!(user?.mangoVerified || user?.role === "admin")}
                   convertingId={convertingId}
@@ -983,6 +992,24 @@ export default function Leads() {
           </table>
         )}
       </div>
+
+      {!loading && filtered.length > 0 && (
+        <div className="flex items-center justify-between px-2 py-2 border-t border-border">
+          <span className="text-xs text-muted-foreground">
+            Страница {page} из {totalPages}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+              <Icon name="ChevronLeft" size={14} />
+              Назад
+            </Button>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+              Вперёд
+              <Icon name="ChevronRight" size={14} />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Detail Modal */}
       <Dialog open={detailId !== null} onOpenChange={() => setDetailId(null)}>
