@@ -572,7 +572,15 @@ export default function Leads() {
         wb = XLSX.read(buf, { type: "array", raw: false });
       }
       const ws = wb.Sheets[wb.SheetNames[0]];
+      if (!ws) {
+        alert("Не удалось прочитать файл: в нём нет листов с данными.");
+        return;
+      }
       const raw = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: "", raw: false });
+      if (raw.length === 0) {
+        alert("В файле не найдено ни одной строки с данными.");
+        return;
+      }
 
       // Определяем реальное имя колонки с телефоном (может быть "Phone", числовым ключом и т.д.)
       const sampleKeys = raw.length > 0 ? Object.keys(raw[0]) : [];
@@ -593,16 +601,33 @@ export default function Leads() {
           notes,
         };
       }).filter((r) => r.phone);
+
+      if (rows.length === 0) {
+        alert(`Не найдено ни одной строки с телефоном. Проверьте, что в файле есть колонка "Телефон"/"Phone". Найденные колонки: ${sampleKeys.join(", ") || "нет"}`);
+        return;
+      }
+
       const res = await fetch(API, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
         body: JSON.stringify({ action: "import_leads", rows }),
       });
-      const data = await res.json();
-      if (data.ok) {
-        setImportResult({ imported: data.imported, skipped: data.skipped });
-        loadLeads();
+      let data: { ok?: boolean; imported?: number; skipped?: number; error?: string };
+      try {
+        data = await res.json();
+      } catch {
+        alert(`Сервер вернул некорректный ответ (статус ${res.status}). Попробуйте ещё раз.`);
+        return;
       }
+      if (!res.ok || !data.ok) {
+        alert(data.error || `Ошибка импорта (статус ${res.status})`);
+        return;
+      }
+      setImportResult({ imported: data.imported || 0, skipped: data.skipped || 0 });
+      loadLeads();
+    } catch (err) {
+      console.error("Import Excel error:", err);
+      alert(`Не удалось обработать файл: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setImporting(false);
     }
