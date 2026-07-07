@@ -630,13 +630,18 @@ def action_import_leads(body, headers, conn):
     if not rows:
         return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "Нет данных для импорта"})}
 
-    imported = 0
-    skipped = 0
     today = str(date.today())
 
-    cur = conn.cursor()
+    # Подготовка и дедупликация строк на стороне Python (без обращений к БД в цикле)
+    prepared = []
+    seen_phones = set()
     for row in rows:
         phone = (row.get("phone") or row.get("Телефон") or "").strip()
+        if not phone:
+            continue
+        if phone in seen_phones:
+            continue
+        seen_phones.add(phone)
         full_name = (row.get("fullName") or row.get("ФИО") or "").strip()
         city = (row.get("city") or row.get("Город") or "").strip()
         citizenship = (row.get("citizenship") or row.get("Гражданство") or "").strip()
@@ -645,14 +650,29 @@ def action_import_leads(body, headers, conn):
             notes = f"Источник: DMP.ONE\n{notes}".strip()
         elif not notes:
             notes = "Источник: DMP.ONE"
+        prepared.append((full_name, phone, city, citizenship, notes))
 
-        # Пропускаем дубли по номеру телефона
-        if phone:
-            cur.execute(f"SELECT 1 FROM {SCHEMA}.candidates WHERE phone = {q(phone)} AND is_lead = true LIMIT 1")
-            if cur.fetchone():
-                skipped += 1
-                continue
+    if not prepared:
+        return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "imported": 0, "skipped": len(rows)})}
 
+    cur = conn.cursor()
+
+    # Одним запросом узнаём, какие из телефонов уже есть в базе
+    all_phones = [p[1] for p in prepared]
+    phones_list_sql = ",".join(q(p) for p in all_phones)
+    cur.execute(f"SELECT phone FROM {SCHEMA}.candidates WHERE is_lead = true AND phone IN ({phones_list_sql})")
+    existing_phones = {r[0] for r in cur.fetchall()}
+
+    to_insert = [p for p in prepared if p[1] not in existing_phones]
+    skipped = len(rows) - len(to_insert)
+
+    # Пакетная вставка одним запросом
+    if to_insert:
+        values_sql = ",".join(
+            f"({q(full_name)},{q(phone)},{q(city)},{q(citizenship)},{q(notes)},"
+            f"'','','','','[]','[]','[]','[]','','','','','',false,false,{q(today)},true)"
+            for full_name, phone, city, citizenship, notes in to_insert
+        )
         cur.execute(
             f"""INSERT INTO {SCHEMA}.candidates
                 (full_name, phone, city, citizenship, notes,
@@ -660,17 +680,12 @@ def action_import_leads(body, headers, conn):
                  doc_photos, relation_photos, tickets, contract_photos,
                  employee_name, company, relations, birth_date, arrival_date,
                  has_inn, has_snils, created_at, is_lead)
-                VALUES ({q(full_name)},{q(phone)},{q(city)},{q(citizenship)},{q(notes)},
-                        '','','','',
-                        '[]','[]','[]','[]',
-                        '','','','','',
-                        false, false, {q(today)}, true)"""
+                VALUES {values_sql}"""
         )
-        imported += 1
 
     conn.commit()
     cur.close()
-    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "imported": imported, "skipped": skipped})}
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "imported": len(to_insert), "skipped": skipped})}
 
 
 def action_get_duplicates(headers, conn):
