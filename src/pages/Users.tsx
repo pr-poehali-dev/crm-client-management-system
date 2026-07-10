@@ -44,6 +44,10 @@ export default function Users() {
   const [reassignToId, setReassignToId] = useState<number | "">("");
   const [reassigning, setReassigning] = useState(false);
   const [reassignResult, setReassignResult] = useState<string | null>(null);
+  const [editModal, setEditModal] = useState<User | null>(null);
+  const [editFullName, setEditFullName] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const authHeaders = { "Content-Type": "application/json", "X-Session-Id": token || "" };
 
@@ -120,6 +124,25 @@ export default function Users() {
     const data = apiParse(await res.text());
     if (!res.ok) { alert(data.error || "Не удалось удалить пользователя"); return; }
     load();
+  };
+
+  const handleEditSave = async () => {
+    if (!editModal || !editFullName.trim()) return;
+    setEditError(null);
+    setEditSaving(true);
+    try {
+      const res = await fetch(AUTH_URL, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ action: "update_user", id: editModal.id, fullName: editFullName.trim() }),
+      });
+      const data = apiParse(await res.text());
+      if (!res.ok) { setEditError(data.error || "Ошибка"); return; }
+      setEditModal(null);
+      load();
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const handleReassign = async () => {
@@ -235,6 +258,13 @@ export default function Users() {
                   <div className="text-xs text-muted-foreground">@{u.login}</div>
                 </div>
                 {roleBadge(u)}
+                <button
+                  onClick={() => { setEditModal(u); setEditFullName(u.fullName); setEditError(null); }}
+                  className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  title="Редактировать ФИО"
+                >
+                  <Icon name="Pencil" size={14} />
+                </button>
                 {u.id === me?.id ? (
                   <span className="text-xs text-muted-foreground italic">Вы</span>
                 ) : (
@@ -325,6 +355,31 @@ export default function Users() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Редактирование ФИО */}
+      <Dialog open={!!editModal} onOpenChange={() => setEditModal(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+              <Icon name="Pencil" size={15} />Редактировать ФИО
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">ФИО</Label>
+              <Input value={editFullName} onChange={(e) => setEditFullName(e.target.value)}
+                placeholder="Фамилия Имя Отчество" className="h-8 text-sm" />
+            </div>
+            {editError && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">{editError}</div>}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditModal(null)} className="h-8 text-xs">Отмена</Button>
+              <Button disabled={editSaving || !editFullName.trim()} onClick={handleEditSave} className="h-8 text-xs text-white" style={{ background: "hsl(217,60%,20%)" }}>
+                {editSaving ? <Icon name="Loader2" size={13} className="animate-spin" /> : "Сохранить"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

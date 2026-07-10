@@ -221,6 +221,26 @@ def action_create_user(body, headers, conn):
     return ok({"id": new_id, "login": login, "fullName": full_name, "role": role}, 201)
 
 
+def action_update_user(body, headers, conn):
+    """Редактирование ФИО пользователя. Только для администраторов."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return err("Нет доступа", 403)
+    target_id = int(body.get("id", 0))
+    full_name = (body.get("fullName") or "").strip()
+    if not full_name:
+        return err("ФИО не может быть пустым")
+    cur = conn.cursor()
+    cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE id = {target_id}")
+    if not cur.fetchone():
+        cur.close()
+        return err("Пользователь не найден", 404)
+    cur.execute(f"UPDATE {SCHEMA}.users SET full_name = '{esc(full_name)}' WHERE id = {target_id}")
+    conn.commit()
+    cur.close()
+    return ok({"ok": True, "fullName": full_name})
+
+
 def action_toggle_user(body, headers, conn):
     user = get_session_user(conn, headers.get("x-session-id", ""))
     if not user or user["role"] != "admin":
@@ -336,6 +356,8 @@ def handler(event: dict, context) -> dict:
             return action_list_users(headers, conn)
         if action == "create_user":
             return action_create_user(body, headers, conn)
+        if action == "update_user":
+            return action_update_user(body, headers, conn)
         if action == "toggle_user":
             return action_toggle_user(body, headers, conn)
         if action == "delete_user":
