@@ -10,6 +10,7 @@ import Icon from "@/components/ui/icon";
 import func2url from "../../backend/func2url.json";
 
 const AUTH_URL = (func2url as Record<string, string>)["auth"];
+const CANDIDATES_URL = (func2url as Record<string, string>)["candidates"];
 
 interface User {
   id: number;
@@ -39,6 +40,10 @@ export default function Users() {
   const [form, setForm] = useState({ login: "", password: "", fullName: "", role: "employee" as "admin" | "employee" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reassignModal, setReassignModal] = useState<User | null>(null);
+  const [reassignToId, setReassignToId] = useState<number | "">("");
+  const [reassigning, setReassigning] = useState(false);
+  const [reassignResult, setReassignResult] = useState<string | null>(null);
 
   const authHeaders = { "Content-Type": "application/json", "X-Session-Id": token || "" };
 
@@ -115,6 +120,30 @@ export default function Users() {
     const data = apiParse(await res.text());
     if (!res.ok) { alert(data.error || "Не удалось удалить пользователя"); return; }
     load();
+  };
+
+  const handleReassign = async () => {
+    if (!reassignModal || !reassignToId) return;
+    const toUser = users.find((u) => u.id === reassignToId);
+    if (!toUser) return;
+    setReassigning(true);
+    setReassignResult(null);
+    try {
+      const res = await fetch(CANDIDATES_URL, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          action: "reassign_employee",
+          fromEmployeeName: reassignModal.fullName || reassignModal.login,
+          toEmployeeName: toUser.fullName || toUser.login,
+        }),
+      });
+      const data = apiParse(await res.text());
+      if (!res.ok) { setReassignResult(data.error || "Ошибка передачи"); return; }
+      setReassignResult(`Передано кандидатов: ${data.updated}`);
+    } finally {
+      setReassigning(false);
+    }
   };
 
   const handleToggleMango = async (u: User) => {
@@ -232,6 +261,13 @@ export default function Users() {
                       <Icon name={u.isActive ? "Ban" : "CheckCircle"} size={14} />
                     </button>
                     <button
+                      onClick={() => { setReassignModal(u); setReassignToId(""); setReassignResult(null); }}
+                      className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600 transition-colors"
+                      title="Передать кандидатов другому сотруднику"
+                    >
+                      <Icon name="Users" size={14} />
+                    </button>
+                    <button
                       onClick={() => handleDelete(u)}
                       className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors"
                       title="Удалить пользователя"
@@ -310,6 +346,44 @@ export default function Users() {
               <Button variant="outline" onClick={() => setPasswordModal(null)} className="h-8 text-xs">Отмена</Button>
               <Button disabled={saving || !newPassword.trim()} onClick={handleChangePassword} className="h-8 text-xs text-white" style={{ background: "hsl(217,60%,20%)" }}>
                 {saving ? <Icon name="Loader2" size={13} className="animate-spin" /> : "Сохранить"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Передача кандидатов другому сотруднику */}
+      <Dialog open={!!reassignModal} onOpenChange={() => setReassignModal(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+              <Icon name="Users" size={15} />Передать кандидатов — {reassignModal?.fullName || reassignModal?.login}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div className="text-xs text-muted-foreground">
+              Все кандидаты, закреплённые за этим сотрудником, будут переданы выбранному ниже.
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Передать сотруднику</Label>
+              <select
+                value={reassignToId}
+                onChange={(e) => setReassignToId(e.target.value ? Number(e.target.value) : "")}
+                className="w-full h-8 text-sm border border-input rounded-md px-2 bg-background"
+              >
+                <option value="">Выберите сотрудника</option>
+                {users.filter((u) => u.id !== reassignModal?.id).map((u) => (
+                  <option key={u.id} value={u.id}>{u.fullName || u.login}</option>
+                ))}
+              </select>
+            </div>
+            {reassignResult && (
+              <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1">{reassignResult}</div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setReassignModal(null)} className="h-8 text-xs">Закрыть</Button>
+              <Button disabled={reassigning || !reassignToId} onClick={handleReassign} className="h-8 text-xs text-white" style={{ background: "hsl(217,60%,20%)" }}>
+                {reassigning ? <Icon name="Loader2" size={13} className="animate-spin" /> : "Передать"}
               </Button>
             </div>
           </div>

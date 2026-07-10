@@ -360,6 +360,24 @@ def action_assign_leads(body, cur, conn, headers):
     return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "updated": updated})}
 
 
+def action_reassign_employee(body, cur, conn, headers):
+    """Массовая передача всех кандидатов (не лидов) от одного сотрудника (по ФИО) другому. Только для админов."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return {"statusCode": 403, "headers": CORS, "body": json.dumps({"error": "Нет доступа"})}
+    from_name = (body.get("fromEmployeeName") or "").strip()
+    to_name = (body.get("toEmployeeName") or "").strip()
+    if not from_name or not to_name:
+        return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "fromEmployeeName и toEmployeeName обязательны"})}
+    cur.execute(
+        f"UPDATE {SCHEMA}.candidates SET employee_name={q(to_name)} "
+        f"WHERE is_lead=false AND employee_name={q(from_name)} AND trashed_at IS NULL RETURNING id"
+    )
+    updated = [r[0] for r in cur.fetchall()]
+    conn.commit()
+    return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "updated": len(updated)})}
+
+
 def action_set_color(body, cur, conn, headers):
     """Установить цветовую пометку кандидату/лиду."""
     user = get_session_user(conn, headers.get("x-session-id", ""))
@@ -1144,6 +1162,8 @@ def handler(event: dict, context) -> dict:
                 return action_delete_empty_leads(headers, conn)
             if action == "assign_leads":
                 return action_assign_leads(body, cur, conn, headers)
+            if action == "reassign_employee":
+                return action_reassign_employee(body, cur, conn, headers)
             if action == "set_color":
                 return action_set_color(body, cur, conn, headers)
             if action == "help_save":
