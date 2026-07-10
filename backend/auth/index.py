@@ -243,6 +243,36 @@ def action_toggle_user(body, headers, conn):
     return ok({"ok": True, "isActive": new_state})
 
 
+def action_delete_user(body, headers, conn):
+    """Удаление пользователя (мягкое): логин переименовывается с префиксом deleted_,
+    аккаунт блокируется, все его сессии завершаются. История (кандидаты, звонки) сохраняется."""
+    user = get_session_user(conn, headers.get("x-session-id", ""))
+    if not user or user["role"] != "admin":
+        return err("Нет доступа", 403)
+    target_id = int(body.get("id", 0))
+    if target_id == user["id"]:
+        return err("Нельзя удалить самого себя")
+    cur = conn.cursor()
+    cur.execute(f"SELECT login, role FROM {SCHEMA}.users WHERE id = {target_id}")
+    row = cur.fetchone()
+    if not row:
+        cur.close()
+        return err("Пользователь не найден", 404)
+    login, role = row
+    if role == "admin":
+        cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.users WHERE role = 'admin' AND login NOT LIKE 'deleted_%' AND is_active = true")
+        admin_count = cur.fetchone()[0]
+        if admin_count <= 1:
+            cur.close()
+            return err("Нельзя удалить последнего администратора")
+    new_login = f"deleted_{target_id}_{login}"
+    cur.execute(f"UPDATE {SCHEMA}.sessions SET expires_at = NOW() WHERE user_id = {target_id}")
+    cur.execute(f"UPDATE {SCHEMA}.users SET is_active = false, login = '{esc(new_login)}' WHERE id = {target_id}")
+    conn.commit()
+    cur.close()
+    return ok({"ok": True})
+
+
 def action_change_password(body, headers, conn):
     user = get_session_user(conn, headers.get("x-session-id", ""))
     if not user or user["role"] != "admin":
@@ -308,6 +338,8 @@ def handler(event: dict, context) -> dict:
             return action_create_user(body, headers, conn)
         if action == "toggle_user":
             return action_toggle_user(body, headers, conn)
+        if action == "delete_user":
+            return action_delete_user(body, headers, conn)
         if action == "change_password":
             return action_change_password(body, headers, conn)
         if action == "change_own_password":

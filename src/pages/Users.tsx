@@ -105,6 +105,18 @@ export default function Users() {
     load();
   };
 
+  const handleDelete = async (u: User) => {
+    if (!confirm(`Удалить пользователя «${u.fullName || u.login}»? Его карточки кандидатов и история звонков сохранятся.`)) return;
+    const res = await fetch(AUTH_URL, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ action: "delete_user", id: u.id }),
+    });
+    const data = apiParse(await res.text());
+    if (!res.ok) { alert(data.error || "Не удалось удалить пользователя"); return; }
+    load();
+  };
+
   const handleToggleMango = async (u: User) => {
     await fetch(AUTH_URL, {
       method: "POST",
@@ -218,6 +230,13 @@ export default function Users() {
                       title={u.isActive ? "Заблокировать" : "Разблокировать"}
                     >
                       <Icon name={u.isActive ? "Ban" : "CheckCircle"} size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(u)}
+                      className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors"
+                      title="Удалить пользователя"
+                    >
+                      <Icon name="Trash2" size={14} />
                     </button>
                   </div>
                 )}
