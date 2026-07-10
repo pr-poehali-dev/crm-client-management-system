@@ -231,11 +231,23 @@ def action_update_user(body, headers, conn):
     if not full_name:
         return err("ФИО не может быть пустым")
     cur = conn.cursor()
-    cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE id = {target_id}")
-    if not cur.fetchone():
+    cur.execute(f"SELECT id, full_name FROM {SCHEMA}.users WHERE id = {target_id}")
+    row = cur.fetchone()
+    if not row:
         cur.close()
         return err("Пользователь не найден", 404)
+    old_full_name = row[1] or ""
     cur.execute(f"UPDATE {SCHEMA}.users SET full_name = '{esc(full_name)}' WHERE id = {target_id}")
+    # Переносим карточки кандидатов и лидов на новое ФИО, чтобы они не "потерялись"
+    if old_full_name and old_full_name != full_name:
+        cur.execute(
+            f"UPDATE {SCHEMA}.candidates SET employee_name = '{esc(full_name)}' "
+            f"WHERE is_lead = false AND employee_name = '{esc(old_full_name)}' AND trashed_at IS NULL"
+        )
+        cur.execute(
+            f"UPDATE {SCHEMA}.candidates SET assigned_to = '{esc(full_name)}' "
+            f"WHERE is_lead = true AND assigned_to = '{esc(old_full_name)}' AND trashed_at IS NULL"
+        )
     conn.commit()
     cur.close()
     return ok({"ok": True, "fullName": full_name})
