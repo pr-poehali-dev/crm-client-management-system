@@ -376,6 +376,7 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showUncalled, setShowUncalled] = useState(false);
+  const [filterEmployee, setFilterEmployee] = useState("");
   const [leadsCount, setLeadsCount] = useState<number | null>(null);
   const { unreadCount } = useUnread(token, user?.id);
   useBadge(unreadCount);
@@ -456,17 +457,23 @@ export default function Index() {
     }).catch(() => {});
   }, [isAdmin, token]);
 
+  const employees = useMemo(
+    () => Array.from(new Set(candidates.map((c) => c.employeeName).filter(Boolean))).sort(),
+    [candidates]
+  );
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return candidates.filter((c) => {
       if (showUncalled && c.called) return false;
+      if (filterEmployee && c.employeeName !== filterEmployee) return false;
       return !q || [c.fullName, c.employeeName, c.age].some((v) => v.toLowerCase().includes(q));
     });
-  }, [candidates, search, showUncalled]);
+  }, [candidates, search, showUncalled, filterEmployee]);
 
   const PAGE_SIZE = 50;
   const [page, setPage] = useState(1);
-  useEffect(() => { setPage(1); }, [search, showUncalled]);
+  useEffect(() => { setPage(1); }, [search, showUncalled, filterEmployee]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -686,6 +693,17 @@ export default function Index() {
           <Icon name="PhoneMissed" size={13} />
           <span>Непрозвоненные</span>
         </button>
+        {isAdmin && employees.length > 0 && (
+          <select
+            value={filterEmployee}
+            onChange={(e) => setFilterEmployee(e.target.value)}
+            className={`text-xs h-8 px-2 rounded border transition-colors focus:outline-none ${filterEmployee ? "border-blue-500 bg-blue-50 text-blue-700 font-medium" : "border-border text-muted-foreground bg-white"}`}
+            title="Фильтр по сотруднику"
+          >
+            <option value="">Все сотрудники</option>
+            {employees.map((e) => <option key={e} value={e}>{e}</option>)}
+          </select>
+        )}
         <span className="text-xs text-muted-foreground">
           Показано: <b className="text-foreground">{filtered.length}</b> из {candidates.length}
         </span>
