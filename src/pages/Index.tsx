@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Icon from "@/components/ui/icon";
 import { useAuth } from "@/contexts/AuthContext";
 import func2url from "../../backend/func2url.json";
@@ -441,6 +442,19 @@ export default function Index() {
       .then((raw) => { const data = JSON.parse(raw); setLeadsCount(Array.isArray(data) ? data.length : 0); })
       .catch(() => {});
   }, [token]);
+
+  const [staffList, setStaffList] = useState<{ id: number; fullName: string }[]>([]);
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch(AUTH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Session-Id": token || "" },
+      body: JSON.stringify({ action: "list_users" }),
+    }).then((r) => r.json()).then((data) => {
+      const list = (data.users || []).filter((u: { role: string }) => u.role === "employee");
+      setStaffList(list);
+    }).catch(() => {});
+  }, [isAdmin, token]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -880,8 +894,24 @@ export default function Index() {
               </div>
               <div className="space-y-1">
                 <Label className="text-xs font-medium">ФИО сотрудника</Label>
-                <Input value={form.employeeName} onChange={(e) => setForm({ ...form, employeeName: e.target.value })}
-                  placeholder="Ответственный" className="h-9 text-sm" />
+                {isAdmin && staffList.length > 0 ? (
+                  <Select
+                    value={form.employeeName || undefined}
+                    onValueChange={(val) => setForm({ ...form, employeeName: val })}
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Выберите сотрудника" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {staffList.map((s) => (
+                        <SelectItem key={s.id} value={s.fullName}>{s.fullName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={form.employeeName} onChange={(e) => setForm({ ...form, employeeName: e.target.value })}
+                    placeholder="Ответственный" className="h-9 text-sm" />
+                )}
               </div>
               <div className="space-y-1">
                 <Label className="text-xs font-medium">Компания</Label>
