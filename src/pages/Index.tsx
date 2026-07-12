@@ -3,6 +3,7 @@ import { useUnread } from "@/hooks/useUnread";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -841,8 +842,8 @@ export default function Index() {
               {/* 2. Дата рождения */}
               <div className="space-y-1">
                 <Label className="text-xs font-medium">2. Дата рождения</Label>
-                <Input value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
-                  placeholder="дд.мм.гггг" className="h-9 text-sm" />
+                <DateInput value={form.birthDate} onChange={(v) => setForm({ ...form, birthDate: v })}
+                  className="h-9 text-sm" />
               </div>
               {/* 3. Город */}
               <div className="space-y-1">

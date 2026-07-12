@@ -3,6 +3,7 @@ import { useUnread } from "@/hooks/useUnread";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Icon from "@/components/ui/icon";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1139,7 +1140,7 @@ export default function Leads() {
                     </div>
                     <div className="space-y-1">
                       <div className="text-xs text-muted-foreground font-medium">Дата рождения</div>
-                      <Input value={leadForm.birthDate} onChange={(e) => setLeadForm({ ...leadForm, birthDate: e.target.value })} placeholder="дд.мм.гггг" className="h-8 text-sm" />
+                      <DateInput value={leadForm.birthDate} onChange={(v) => setLeadForm({ ...leadForm, birthDate: v })} className="h-8 text-sm" />
                     </div>
                     <div className="space-y-1">
                       <div className="text-xs text-muted-foreground font-medium">Город</div>
